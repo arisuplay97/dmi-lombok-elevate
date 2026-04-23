@@ -75,14 +75,19 @@ export function Navbar() {
                 to={item.to}
                 className={[
                   "relative px-3.5 py-2 text-[0.875rem] font-medium transition-colors rounded-md",
-                  active ? "text-brand-deep" : "text-ink/80 hover:text-brand-deep",
+                  scrolled
+                    ? active ? "text-brand-deep" : "text-ink/80 hover:text-brand-deep"
+                    : active ? "text-white" : "text-white/85 hover:text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]",
                 ].join(" ")}
               >
                 {item.label}
                 {active && (
                   <motion.span
                     layoutId="nav-underline"
-                    className="absolute left-3.5 right-3.5 -bottom-px h-[2px] bg-brand"
+                    className={[
+                      "absolute left-3.5 right-3.5 -bottom-px h-[2px]",
+                      scrolled ? "bg-brand" : "bg-white",
+                    ].join(" ")}
                     transition={{ type: "spring", stiffness: 400, damping: 32 }}
                   />
                 )}
@@ -95,7 +100,12 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           <Link
             to="/kontak"
-            className="hidden lg:inline-flex items-center gap-1.5 px-4 py-2 text-[0.875rem] font-semibold text-white bg-brand-deep rounded-md hover:bg-brand transition-colors"
+            className={[
+              "hidden lg:inline-flex items-center gap-1.5 px-4 py-2 text-[0.875rem] font-semibold rounded-md transition-colors",
+              scrolled
+                ? "text-white bg-brand-deep hover:bg-brand"
+                : "text-brand-deep bg-white/95 hover:bg-white backdrop-blur-sm",
+            ].join(" ")}
           >
             Hubungi Kami
             <ChevronDown className="h-3.5 w-3.5 -rotate-90" />
