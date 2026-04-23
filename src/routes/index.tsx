@@ -1,26 +1,48 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { HeroSlider } from "@/components/HeroSlider";
+import { BrandStatement } from "@/components/sections/BrandStatement";
+import { MetricsBand } from "@/components/sections/MetricsBand";
+import { KetuaMessage } from "@/components/sections/KetuaMessage";
+import { AboutSection } from "@/components/sections/AboutSection";
+import { Programs } from "@/components/sections/Programs";
+import { NewsSection } from "@/components/sections/NewsSection";
+import { GallerySection } from "@/components/sections/GallerySection";
+import { CTABand } from "@/components/sections/CTABand";
+import heroOg from "@/assets/hero-1.jpg";
 
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "Beranda — DMI Kabupaten Lombok Tengah" },
+      {
+        name: "description",
+        content:
+          "Dewan Masjid Indonesia Kabupaten Lombok Tengah: pembinaan masjid, pemberdayaan umat, pendidikan dakwah, dan pelayanan sosial untuk peradaban yang bermartabat.",
+      },
+      { property: "og:title", content: "Dewan Masjid Indonesia — Kabupaten Lombok Tengah" },
+      {
+        property: "og:description",
+        content: "Memakmurkan masjid, menguatkan umat, membangun peradaban di Lombok Tengah.",
+      },
+      { property: "og:image", content: heroOg },
+      { name: "twitter:image", content: heroOg },
+    ],
+  }),
+  component: HomePage,
 });
 
-// IMPORTANT: Replace this placeholder. For sites with multiple pages (About, Services, Contact, etc.),
-// create separate route files (about.tsx, services.tsx, contact.tsx) — don't put all pages in this file.
-function PlaceholderIndex() {
+function HomePage() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <>
+      <HeroSlider />
+      <BrandStatement />
+      <MetricsBand />
+      <KetuaMessage />
+      <AboutSection />
+      <Programs />
+      <NewsSection />
+      <GallerySection />
+      <CTABand />
+    </>
   );
-}
-
-function Index() {
-  return <PlaceholderIndex />;
 }
