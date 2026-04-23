@@ -1,47 +1,46 @@
 const fs = require('fs');
 const path = require('path');
 
+// Paths
 const clientDir = path.join(process.cwd(), 'dist', 'client');
 const assetsDir = path.join(clientDir, 'assets');
 
 if (!fs.existsSync(assetsDir)) {
-    console.error('Assets directory not found:', assetsDir);
+    console.error('ERROR: assets dir not found:', assetsDir);
     process.exit(1);
 }
 
 const files = fs.readdirSync(assetsDir);
+const allJsFiles = files.filter(f => f.startsWith('index-') && f.endsWith('.js'));
+const cssFiles = files.filter(f => f.endsWith('.css'));
 
-// Get all JS and CSS files
-const jsFiles = files.filter(f => f.startsWith('index-') && f.endsWith('.js'));
-const cssFiles = files.filter(f => f.startsWith('styles-') && f.endsWith('.css'));
-
-if (jsFiles.length === 0) {
-    console.error('Main JS bundle not found in', assetsDir);
+if (allJsFiles.length === 0) {
+    console.error('ERROR: No JS bundles found in', assetsDir);
     process.exit(1);
 }
 
-console.log('Found JS files:', jsFiles);
-console.log('Found CSS files:', cssFiles);
+console.log('JS bundles found:', allJsFiles);
+console.log('CSS files found:', cssFiles);
 
-let html = fs.readFileSync(path.join(process.cwd(), 'index.html'), 'utf-8');
+const cssTags = cssFiles.map(f => `<link rel="stylesheet" crossorigin href="/assets/${f}">`).join('\n    ');
+const jsTags = allJsFiles.map(f => `<script type="module" crossorigin src="/assets/${f}"></script>`).join('\n    ');
 
-// Remove the dev script
-html = html.replace(/<script type="module" src="\/src\/main\.tsx"><\/script>/, '');
-
-// Create asset tags for ALL index JS and style CSS files
-const jsTags = jsFiles.map(f => `<script type="module" src="/assets/${f}"></script>`).join('\n    ');
-const cssTags = cssFiles.map(f => `<link rel="stylesheet" href="/assets/${f}">`).join('\n    ');
-
-const assetsHtml = `
+const html = `<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dewan Masjid Indonesia — Kabupaten Lombok Tengah</title>
+    <meta name="description" content="Situs resmi Dewan Masjid Indonesia (DMI) Kabupaten Lombok Tengah. Memakmurkan masjid, menguatkan umat, membangun peradaban." />
     ${cssTags}
     ${jsTags}
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
 `;
 
-if (html.includes('</head>')) {
-    html = html.replace('</head>', `${assetsHtml}</head>`);
-} else {
-    html = html.replace('</body>', `${assetsHtml}</body>`);
-}
-
 fs.writeFileSync(path.join(clientDir, 'index.html'), html);
-console.log('Generated production index.html with all bundles in dist/client/index.html');
+console.log('SUCCESS: Generated dist/client/index.html');
+console.log(html);

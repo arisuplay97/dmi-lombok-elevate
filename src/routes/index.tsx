@@ -8,28 +8,10 @@ import { Programs } from "@/components/sections/Programs";
 import { NewsSection } from "@/components/sections/NewsSection";
 import { GallerySection } from "@/components/sections/GallerySection";
 import { CTABand } from "@/components/sections/CTABand";
-import heroOg from "@/assets/hero-1.jpg";
 
-export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "Beranda — DMI Kabupaten Lombok Tengah" },
-      {
-        name: "description",
-        content:
-          "Dewan Masjid Indonesia Kabupaten Lombok Tengah: pembinaan masjid, pemberdayaan umat, pendidikan dakwah, dan pelayanan sosial untuk peradaban yang bermartabat.",
-      },
-      { property: "og:title", content: "Dewan Masjid Indonesia — Kabupaten Lombok Tengah" },
-      {
-        property: "og:description",
-        content: "Memakmurkan masjid, menguatkan umat, membangun peradaban di Lombok Tengah.",
-      },
-      { property: "og:image", content: heroOg },
-      { name: "twitter:image", content: heroOg },
-    ],
-  }),
+export const Route = createFileRoute("/")(({
   component: HomePage,
-});
+}));
 
 function HomePage() {
   return (

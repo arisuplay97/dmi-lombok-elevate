@@ -2,17 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PagePlaceholder } from "@/components/PagePlaceholder";
 
 export const Route = createFileRoute("/kontak")({
-  head: () => ({
-    meta: [
-      { title: "Kontak — DMI Kabupaten Lombok Tengah" },
-      {
-        name: "description",
-        content: "Hubungi sekretariat DMI Kabupaten Lombok Tengah untuk kemitraan, konsultasi, atau informasi.",
-      },
-      { property: "og:title", content: "Kontak DMI Lombok Tengah" },
-      { property: "og:description", content: "Hubungi sekretariat DMI Kabupaten Lombok Tengah." },
-    ],
-  }),
   component: () => (
     <PagePlaceholder
       eyebrow="Kontak"

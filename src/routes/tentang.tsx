@@ -2,18 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PagePlaceholder } from "@/components/PagePlaceholder";
 
 export const Route = createFileRoute("/tentang")({
-  head: () => ({
-    meta: [
-      { title: "Tentang Kami — DMI Kabupaten Lombok Tengah" },
-      {
-        name: "description",
-        content:
-          "Mengenal Dewan Masjid Indonesia Kabupaten Lombok Tengah: visi, misi, kepengurusan, dan komitmen pelayanan kepada umat.",
-      },
-      { property: "og:title", content: "Tentang DMI Kabupaten Lombok Tengah" },
-      { property: "og:description", content: "Visi, misi, dan kepengurusan DMI Lombok Tengah." },
-    ],
-  }),
   component: () => (
     <PagePlaceholder
       eyebrow="Tentang Kami"
@@ -22,3 +10,4 @@ export const Route = createFileRoute("/tentang")({
     />
   ),
 });
+

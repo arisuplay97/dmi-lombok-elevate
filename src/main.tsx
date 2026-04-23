@@ -1,17 +1,14 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { StartClient } from "@tanstack/react-start";
+import { RouterProvider } from "@tanstack/react-router";
 import { getRouter } from "./router";
 import "./styles.css";
 
 const router = getRouter();
 
-const rootElement = document.getElementById("root");
-if (rootElement && !rootElement.innerHTML) {
-  const root = createRoot(rootElement);
-  root.render(
-    <StrictMode>
-      <StartClient router={router} />
-    </StrictMode>
-  );
-}
+const rootElement = document.getElementById("root")!;
+createRoot(rootElement).render(
+  <StrictMode>
+    <RouterProvider router={router} />
+  </StrictMode>
+);
