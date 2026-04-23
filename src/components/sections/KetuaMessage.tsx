@@ -12,7 +12,7 @@ export function KetuaMessage() {
           <div className="col-span-12 lg:col-span-5">
             <Reveal>
               <div className="relative">
-                <div className="overflow-hidden bg-brand-tint rounded-sm">
+                <div className="overflow-hidden">
                   <img
                     src={ketuaImg}
                     alt={KETUA.name}
