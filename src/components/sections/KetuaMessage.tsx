@@ -68,8 +68,8 @@ export function KetuaMessage() {
             <Reveal delay={0.25}>
               <div className="mt-10 pt-6 border-t border-line flex items-center gap-4">
                 <div>
-                  <div className="font-display font-semibold text-ink">{KETUA.name}</div>
-                  <div className="text-sm text-ink-muted mt-0.5">{KETUA.title}</div>
+                  <div className="font-display font-bold text-ink text-xl md:text-2xl">{KETUA.name}</div>
+                  <div className="text-base text-ink-muted mt-1.5 font-medium">{KETUA.title}</div>
                 </div>
               </div>
             </Reveal>
