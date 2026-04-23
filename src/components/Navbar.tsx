@@ -23,10 +23,12 @@ export function Navbar() {
 
   return (
     <header
+      data-scrolled={scrolled}
       className={[
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
-        "bg-white/95 backdrop-blur-md",
-        scrolled ? "border-b border-line shadow-[0_1px_20px_-8px_rgba(0,0,0,0.08)]" : "border-b border-transparent",
+        "group/nav fixed top-0 left-0 right-0 z-50 transition-all duration-300",
+        scrolled
+          ? "bg-white/95 backdrop-blur-md border-b border-line shadow-[0_1px_20px_-8px_rgba(0,0,0,0.08)]"
+          : "bg-transparent border-b border-transparent",
       ].join(" ")}
     >
       <div
@@ -48,10 +50,16 @@ export function Navbar() {
             height={44}
           />
           <div className="hidden sm:flex flex-col leading-tight">
-            <span className="font-display font-bold text-[0.95rem] text-ink tracking-tight">
+            <span className={[
+              "font-display font-bold text-[0.95rem] tracking-tight transition-colors",
+              scrolled ? "text-ink" : "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]",
+            ].join(" ")}>
               Dewan Masjid Indonesia
             </span>
-            <span className="text-[0.7rem] font-medium text-ink-muted tracking-wide uppercase">
+            <span className={[
+              "text-[0.7rem] font-medium tracking-wide uppercase transition-colors",
+              scrolled ? "text-ink-muted" : "text-white/85 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]",
+            ].join(" ")}>
               Kabupaten Lombok Tengah
             </span>
           </div>
@@ -67,14 +75,19 @@ export function Navbar() {
                 to={item.to}
                 className={[
                   "relative px-3.5 py-2 text-[0.875rem] font-medium transition-colors rounded-md",
-                  active ? "text-brand-deep" : "text-ink/80 hover:text-brand-deep",
+                  scrolled
+                    ? active ? "text-brand-deep" : "text-ink/80 hover:text-brand-deep"
+                    : active ? "text-white" : "text-white/85 hover:text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]",
                 ].join(" ")}
               >
                 {item.label}
                 {active && (
                   <motion.span
                     layoutId="nav-underline"
-                    className="absolute left-3.5 right-3.5 -bottom-px h-[2px] bg-brand"
+                    className={[
+                      "absolute left-3.5 right-3.5 -bottom-px h-[2px]",
+                      scrolled ? "bg-brand" : "bg-white",
+                    ].join(" ")}
                     transition={{ type: "spring", stiffness: 400, damping: 32 }}
                   />
                 )}
@@ -87,7 +100,12 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           <Link
             to="/kontak"
-            className="hidden lg:inline-flex items-center gap-1.5 px-4 py-2 text-[0.875rem] font-semibold text-white bg-brand-deep rounded-md hover:bg-brand transition-colors"
+            className={[
+              "hidden lg:inline-flex items-center gap-1.5 px-4 py-2 text-[0.875rem] font-semibold rounded-md transition-colors",
+              scrolled
+                ? "text-white bg-brand-deep hover:bg-brand"
+                : "text-brand-deep bg-white/95 hover:bg-white backdrop-blur-sm",
+            ].join(" ")}
           >
             Hubungi Kami
             <ChevronDown className="h-3.5 w-3.5 -rotate-90" />
@@ -95,7 +113,10 @@ export function Navbar() {
 
           <button
             onClick={() => setOpen((v) => !v)}
-            className="lg:hidden inline-flex items-center justify-center h-10 w-10 rounded-md text-ink hover:bg-muted transition-colors"
+            className={[
+              "lg:hidden inline-flex items-center justify-center h-10 w-10 rounded-md transition-colors",
+              scrolled ? "text-ink hover:bg-muted" : "text-white hover:bg-white/10",
+            ].join(" ")}
             aria-label="Buka menu"
             aria-expanded={open}
           >
