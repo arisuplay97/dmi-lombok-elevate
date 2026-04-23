@@ -50,10 +50,16 @@ export function Navbar() {
             height={44}
           />
           <div className="hidden sm:flex flex-col leading-tight">
-            <span className="font-display font-bold text-[0.95rem] text-ink tracking-tight">
+            <span className={[
+              "font-display font-bold text-[0.95rem] tracking-tight transition-colors",
+              scrolled ? "text-ink" : "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]",
+            ].join(" ")}>
               Dewan Masjid Indonesia
             </span>
-            <span className="text-[0.7rem] font-medium text-ink-muted tracking-wide uppercase">
+            <span className={[
+              "text-[0.7rem] font-medium tracking-wide uppercase transition-colors",
+              scrolled ? "text-ink-muted" : "text-white/85 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]",
+            ].join(" ")}>
               Kabupaten Lombok Tengah
             </span>
           </div>
