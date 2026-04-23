@@ -59,7 +59,7 @@ export function HeroSlider() {
       <div className="absolute inset-0 grain pointer-events-none" />
 
       {/* Content */}
-      <div className="relative z-10 h-full container-page flex flex-col justify-center pt-32 pb-12 md:pt-40">
+      <div className="relative z-10 h-fit container-page flex flex-col justify-center pt-24 pb-6 md:pt-28">
         <div className="grid grid-cols-12 gap-6 items-end">
           {/* Left: heading block */}
           <div className="col-span-12 lg:col-span-9 xl:col-span-8">
@@ -78,7 +78,7 @@ export function HeroSlider() {
                   </span>
                 </div>
 
-                <h1 className="mt-6 font-display font-bold text-white text-balance text-[1.5rem] sm:text-2xl md:text-3xl lg:text-[2.75rem] xl:text-[3.25rem] leading-[1.15] tracking-tight">
+                <h1 className="mt-6 font-display font-bold text-white text-balance text-[1.5rem] sm:text-2xl md:text-3xl lg:text-[2.5rem] xl:text-[3rem] leading-[1.15] tracking-tight">
                   {slide.title.map((line, i) => (
                     <span key={i} className="block">
                       {line}
@@ -90,17 +90,17 @@ export function HeroSlider() {
                   {slide.subtitle}
                 </p>
 
-                <div className="mt-10 flex flex-wrap items-center gap-3">
+                <div className="mt-8 flex flex-wrap items-center gap-3">
                   <Link
                     to="/program"
-                    className="group inline-flex items-center gap-2 px-6 py-3.5 bg-white text-ink font-semibold text-sm rounded-md hover:bg-brand-tint transition-colors"
+                    className="group inline-flex items-center gap-2 px-6 py-3 bg-white text-ink font-semibold text-sm rounded-md hover:bg-brand-tint transition-colors"
                   >
                     Lihat Program
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                   </Link>
                   <Link
                     to="/tentang"
-                    className="inline-flex items-center gap-2 px-6 py-3.5 border border-white/30 text-white font-semibold text-sm rounded-md hover:bg-white/10 transition-colors backdrop-blur-sm"
+                    className="inline-flex items-center gap-2 px-6 py-3 border border-white/30 text-white font-semibold text-sm rounded-md hover:bg-white/10 transition-colors backdrop-blur-sm"
                   >
                     Tentang DMI
                   </Link>
@@ -110,7 +110,7 @@ export function HeroSlider() {
           </div>
 
           {/* Right: meta + slider controls */}
-          <div className="col-span-12 lg:col-span-4 xl:col-span-5 lg:pl-8 mt-12 lg:mt-0">
+          <div className="col-span-12 lg:col-span-4 xl:col-span-4 lg:pl-8 mt-8 lg:mt-0">
             <div className="flex flex-col items-start lg:items-end gap-6">
               <AnimatePresence mode="wait">
                 <motion.div
@@ -130,7 +130,7 @@ export function HeroSlider() {
         </div>
 
         {/* Bottom controls bar */}
-        <div className="mt-16 lg:mt-20 flex items-center justify-between border-t border-white/15 pt-6">
+        <div className="mt-8 lg:mt-10 flex items-center justify-between border-t border-white/15 pt-6">
           <div className="flex items-center gap-6">
             <div className="font-display font-semibold text-white text-sm">
               <span className="text-white">{String(selected + 1).padStart(2, "0")}</span>

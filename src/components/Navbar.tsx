@@ -39,24 +39,29 @@ export function Navbar() {
       >
         {/* Brand */}
         <Link to="/" className="flex items-center gap-3 group" aria-label="Beranda DMI Lombok Tengah">
-          <div className="relative flex items-center justify-center h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-white shadow-sm ring-4 ring-white/10 transition-transform group-hover:scale-105">
+          <div className={[
+            "relative flex items-center justify-center transition-all duration-300",
+            scrolled 
+              ? "h-10 w-10 bg-transparent shadow-none ring-0" 
+              : "h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-white shadow-md ring-4 ring-white/15"
+          ].join(" ")}>
             <img
               src={logo}
               alt="Logo DMI"
-              className="h-[80%] w-[80%] object-contain"
+              className={scrolled ? "h-full w-full object-contain" : "h-[82%] w-[82%] object-contain"}
               width={80}
               height={80}
             />
           </div>
           <div className="hidden sm:flex flex-col leading-tight">
             <span className={[
-              "font-display font-bold text-[0.9rem] lg:text-[1rem] tracking-tight transition-colors",
+              "font-display font-bold text-[0.95rem] lg:text-[1.1rem] tracking-tight transition-colors",
               scrolled ? "text-ink" : "text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]",
             ].join(" ")}>
               Dewan Masjid Indonesia
             </span>
             <span className={[
-              "text-[0.65rem] lg:text-[0.75rem] font-medium tracking-wide uppercase transition-colors",
+              "text-[0.65rem] lg:text-[0.8rem] font-medium tracking-wide uppercase transition-colors",
               scrolled ? "text-ink-muted" : "text-white/90 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]",
             ].join(" ")}>
               Kabupaten Lombok Tengah
