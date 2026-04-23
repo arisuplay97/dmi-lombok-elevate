@@ -2,7 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import logo from "@/assets/logo-dmi.png";
+import logo from "../pub/logo.png";
 import { NAV, SITE } from "@/data/site";
 
 export function Navbar() {
@@ -43,11 +43,11 @@ export function Navbar() {
             src={logo}
             alt="Logo DMI"
             className={[
-              "transition-all duration-300 select-none",
+              "transition-all duration-300 select-none object-contain",
               scrolled ? "h-9 w-9" : "h-11 w-11",
             ].join(" ")}
-            width={44}
-            height={44}
+            width={80}
+            height={80}
           />
           <div className="hidden sm:flex flex-col leading-tight">
             <span className={[
