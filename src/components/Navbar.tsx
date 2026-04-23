@@ -113,7 +113,10 @@ export function Navbar() {
 
           <button
             onClick={() => setOpen((v) => !v)}
-            className="lg:hidden inline-flex items-center justify-center h-10 w-10 rounded-md text-ink hover:bg-muted transition-colors"
+            className={[
+              "lg:hidden inline-flex items-center justify-center h-10 w-10 rounded-md transition-colors",
+              scrolled ? "text-ink hover:bg-muted" : "text-white hover:bg-white/10",
+            ].join(" ")}
             aria-label="Buka menu"
             aria-expanded={open}
           >
