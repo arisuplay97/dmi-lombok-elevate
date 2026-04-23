@@ -59,7 +59,7 @@ export function HeroSlider() {
       <div className="absolute inset-0 grain pointer-events-none" />
 
       {/* Content */}
-      <div className="relative z-10 h-full container-page flex flex-col justify-center pt-32 pb-24">
+      <div className="relative z-10 h-full container-page flex flex-col justify-center pt-48 pb-24">
         <div className="grid grid-cols-12 gap-6 items-end">
           {/* Left: heading block */}
           <div className="col-span-12 lg:col-span-9 xl:col-span-8">
@@ -78,7 +78,7 @@ export function HeroSlider() {
                   </span>
                 </div>
 
-                <h1 className="mt-6 font-display font-bold text-white text-balance text-[2rem] sm:text-4xl lg:text-[3.5rem] xl:text-[3.75rem] leading-[1.1] tracking-tight">
+                <h1 className="mt-8 font-display font-bold text-white text-balance text-[1.75rem] sm:text-3xl md:text-4xl lg:text-[3.5rem] xl:text-[3.75rem] leading-[1.1] tracking-tight">
                   {slide.title.map((line, i) => (
                     <span key={i} className="block">
                       {line}
@@ -110,8 +110,8 @@ export function HeroSlider() {
           </div>
 
           {/* Right: meta + slider controls */}
-          <div className="col-span-12 lg:col-span-4 xl:col-span-5 lg:pl-8">
-            <div className="hidden lg:flex flex-col items-end gap-6">
+          <div className="col-span-12 lg:col-span-4 xl:col-span-5 lg:pl-8 mt-12 lg:mt-0">
+            <div className="flex flex-col items-start lg:items-end gap-6">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={`meta-${selected}`}
