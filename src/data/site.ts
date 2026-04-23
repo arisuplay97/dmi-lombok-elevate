@@ -151,7 +151,7 @@ export const GALLERY = [
 ];
 
 export const KETUA = {
-  name: "H. Lalu Muhammad Hidayatullah, S.Ag., M.Pd.",
+  name: "H. Lendek Jayadi S.E., M.M",
   title: "Ketua DMI Kabupaten Lombok Tengah",
   quote:
     "Masjid bukan sekadar tempat ibadah, melainkan ruang peradaban tempat umat dibina, diberdayakan, dan dipersatukan untuk kemaslahatan bersama.",

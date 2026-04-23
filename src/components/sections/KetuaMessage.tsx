@@ -1,6 +1,6 @@
 import { Quote } from "lucide-react";
 import { Reveal } from "@/components/Reveal";
-import ketuaImg from "../../pub/ketua.png";
+import ketuaImg from "../../assets/ketua2.png";
 import { KETUA } from "@/data/site";
 
 export function KetuaMessage() {
@@ -12,11 +12,11 @@ export function KetuaMessage() {
           <div className="col-span-12 lg:col-span-5">
             <Reveal>
               <div className="relative">
-                <div className="aspect-[4/5] overflow-hidden bg-brand-tint rounded-sm">
+                <div className="overflow-hidden bg-brand-tint rounded-sm">
                   <img
                     src={ketuaImg}
                     alt={KETUA.name}
-                    className="h-full w-full object-cover"
+                    className="h-auto w-full object-contain"
                     loading="lazy"
                     width={1024}
                     height={1280}

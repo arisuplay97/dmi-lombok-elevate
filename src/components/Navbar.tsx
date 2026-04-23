@@ -2,7 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import logo from "../pub/logo.png";
+import logo from "../assets/logo.png";
 import { NAV, SITE } from "@/data/site";
 
 export function Navbar() {

@@ -59,10 +59,10 @@ export function HeroSlider() {
       <div className="absolute inset-0 grain pointer-events-none" />
 
       {/* Content */}
-      <div className="relative z-10 h-full container-page flex flex-col justify-center pt-24 pb-24">
+      <div className="relative z-10 h-full container-page flex flex-col justify-center pt-32 pb-24">
         <div className="grid grid-cols-12 gap-6 items-end">
           {/* Left: heading block */}
-          <div className="col-span-12 lg:col-span-8 xl:col-span-7">
+          <div className="col-span-12 lg:col-span-9 xl:col-span-8">
             <AnimatePresence mode="wait">
               <motion.div
                 key={selected}
@@ -78,7 +78,7 @@ export function HeroSlider() {
                   </span>
                 </div>
 
-                <h1 className="mt-6 font-display font-bold text-white text-balance text-[2.25rem] sm:text-5xl lg:text-[4.25rem] xl:text-[4.75rem] leading-[1.02] tracking-tight">
+                <h1 className="mt-6 font-display font-bold text-white text-balance text-[2rem] sm:text-4xl lg:text-[3.5rem] xl:text-[3.75rem] leading-[1.1] tracking-tight">
                   {slide.title.map((line, i) => (
                     <span key={i} className="block">
                       {line}
