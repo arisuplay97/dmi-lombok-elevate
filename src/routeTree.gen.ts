@@ -184,7 +184,6 @@ const rootRouteChildren: RootRouteChildren = {
   ProgramRoute: ProgramRoute,
   TentangRoute: TentangRoute,
 }
-
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()

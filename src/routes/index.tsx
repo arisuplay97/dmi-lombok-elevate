@@ -9,9 +9,9 @@ import { NewsSection } from "@/components/sections/NewsSection";
 import { GallerySection } from "@/components/sections/GallerySection";
 import { CTABand } from "@/components/sections/CTABand";
 
-export const Route = createFileRoute("/")(({
+export const Route = createFileRoute("/")({
   component: HomePage,
-}));
+});
 
 function HomePage() {
   return (

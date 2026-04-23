@@ -6,5 +6,5 @@
       "destination": "/index.html"
     }
   ],
-  "outputDirectory": "dist/client"
+  "outputDirectory": "dist"
 }
