@@ -10,31 +10,31 @@ if (!fs.existsSync(assetsDir)) {
 }
 
 const files = fs.readdirSync(assetsDir);
-// Find the largest index-*.js file as it's likely the main bundle
-const jsFiles = files.filter(f => f.startsWith('index-') && f.endsWith('.js'))
-    .map(f => ({ name: f, size: fs.statSync(path.join(assetsDir, f)).size }))
-    .sort((a, b) => b.size - a.size);
+
+// Get all JS and CSS files
+const jsFiles = files.filter(f => f.startsWith('index-') && f.endsWith('.js'));
+const cssFiles = files.filter(f => f.startsWith('styles-') && f.endsWith('.css'));
 
 if (jsFiles.length === 0) {
     console.error('Main JS bundle not found in', assetsDir);
     process.exit(1);
 }
 
-const mainJs = jsFiles[0].name;
-const mainCss = files.find(f => f.startsWith('styles-') && f.endsWith('.css'));
-
-console.log('Found main JS:', mainJs);
-if (mainCss) console.log('Found main CSS:', mainCss);
+console.log('Found JS files:', jsFiles);
+console.log('Found CSS files:', cssFiles);
 
 let html = fs.readFileSync(path.join(process.cwd(), 'index.html'), 'utf-8');
 
 // Remove the dev script
 html = html.replace(/<script type="module" src="\/src\/main\.tsx"><\/script>/, '');
 
-// Insert production assets before </head> or at the end of body
+// Create asset tags for ALL index JS and style CSS files
+const jsTags = jsFiles.map(f => `<script type="module" src="/assets/${f}"></script>`).join('\n    ');
+const cssTags = cssFiles.map(f => `<link rel="stylesheet" href="/assets/${f}">`).join('\n    ');
+
 const assetsHtml = `
-    ${mainCss ? `<link rel="stylesheet" href="/assets/${mainCss}">` : ''}
-    <script type="module" src="/assets/${mainJs}"></script>
+    ${cssTags}
+    ${jsTags}
 `;
 
 if (html.includes('</head>')) {
@@ -44,4 +44,4 @@ if (html.includes('</head>')) {
 }
 
 fs.writeFileSync(path.join(clientDir, 'index.html'), html);
-console.log('Generated production index.html in dist/client/index.html');
+console.log('Generated production index.html with all bundles in dist/client/index.html');
