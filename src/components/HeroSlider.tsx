@@ -59,7 +59,7 @@ export function HeroSlider() {
       <div className="absolute inset-0 grain pointer-events-none" />
 
       {/* Content */}
-      <div className="relative h-full container-page flex flex-col justify-end pb-28 lg:pb-32 pt-32">
+      <div className="relative h-full container-page flex flex-col justify-center pt-24 pb-24">
         <div className="grid grid-cols-12 gap-6 items-end">
           {/* Left: heading block */}
           <div className="col-span-12 lg:col-span-8 xl:col-span-7">
