@@ -39,26 +39,28 @@ export function Navbar() {
       >
         {/* Brand */}
         <Link to="/" className="flex items-center gap-3 group" aria-label="Beranda DMI Lombok Tengah">
-          <img
-            src={logo}
-            alt="Logo DMI"
-            className={[
-              "transition-all duration-300 select-none object-contain",
-              scrolled ? "h-9 w-9" : "h-11 w-11",
-            ].join(" ")}
-            width={80}
-            height={80}
-          />
+          <div className={[
+            "relative flex items-center justify-center rounded-full bg-white ring-2 ring-white transition-all duration-300 overflow-hidden shadow-sm",
+            scrolled ? "h-11 w-11" : "h-14 w-14",
+          ].join(" ")}>
+            <img
+              src={logo}
+              alt="Logo DMI"
+              className="h-[85%] w-[85%] object-contain"
+              width={80}
+              height={80}
+            />
+          </div>
           <div className="hidden sm:flex flex-col leading-tight">
             <span className={[
               "font-display font-bold text-[0.95rem] tracking-tight transition-colors",
-              scrolled ? "text-ink" : "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]",
+              scrolled ? "text-ink" : "text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]",
             ].join(" ")}>
               Dewan Masjid Indonesia
             </span>
             <span className={[
               "text-[0.7rem] font-medium tracking-wide uppercase transition-colors",
-              scrolled ? "text-ink-muted" : "text-white/85 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]",
+              scrolled ? "text-ink-muted" : "text-white/90 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]",
             ].join(" ")}>
               Kabupaten Lombok Tengah
             </span>

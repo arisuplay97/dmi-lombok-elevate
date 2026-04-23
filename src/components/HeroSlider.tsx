@@ -59,8 +59,8 @@ export function HeroSlider() {
       <div className="absolute inset-0 grain pointer-events-none" />
 
       {/* Content */}
-      <div className="relative z-10 h-full container-page flex flex-col justify-center pt-48 pb-24">
-        <div className="grid grid-cols-12 gap-6 items-end">
+      <div className="relative z-10 h-full container-page flex flex-col justify-start pt-64 pb-24 md:pt-72">
+        <div className="grid grid-cols-12 gap-6 items-start">
           {/* Left: heading block */}
           <div className="col-span-12 lg:col-span-9 xl:col-span-8">
             <AnimatePresence mode="wait">

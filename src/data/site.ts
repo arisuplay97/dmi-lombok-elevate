@@ -40,7 +40,7 @@ export const NAV = [
 export const HERO_SLIDES = [
   {
     image: hero1,
-    eyebrow: "Dewan Masjid Indonesia · Kabupaten Lombok Tengah",
+    eyebrow: "Pusat Pemberdayaan Umat",
     title: ["Memakmurkan Masjid,", "Menguatkan Umat,", "Membangun Peradaban."],
     subtitle:
       "Menghadirkan sinergi, pembinaan, dan pemberdayaan yang menjadikan masjid sebagai pusat ibadah, pendidikan, dan penguatan masyarakat.",
