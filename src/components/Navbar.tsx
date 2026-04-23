@@ -39,20 +39,16 @@ export function Navbar() {
       >
         {/* Brand */}
         <Link to="/" className="flex items-center gap-3 group" aria-label="Beranda DMI Lombok Tengah">
-          <div className={[
-            "relative flex items-center justify-center transition-all duration-300",
-            scrolled 
-              ? "h-10 w-10 bg-transparent shadow-none ring-0" 
-              : "h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-white shadow-md ring-4 ring-white/15"
-          ].join(" ")}>
-            <img
-              src={logo}
-              alt="Logo DMI"
-              className={scrolled ? "h-full w-full object-contain" : "h-[82%] w-[82%] object-contain"}
-              width={80}
-              height={80}
-            />
-          </div>
+          <img
+            src={logo}
+            alt="Logo DMI"
+            className={[
+              "transition-all duration-300 select-none object-contain",
+              scrolled ? "h-11 w-11" : "h-14 w-14 sm:h-16 sm:w-16",
+            ].join(" ")}
+            width={120}
+            height={120}
+          />
           <div className="hidden sm:flex flex-col leading-tight">
             <span className={[
               "font-display font-bold text-[0.95rem] lg:text-[1.1rem] tracking-tight transition-colors",
