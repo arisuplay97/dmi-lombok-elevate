@@ -78,7 +78,7 @@ export function HeroSlider() {
                   </span>
                 </div>
 
-                <h1 className="mt-8 font-display font-bold text-white text-balance text-[1.75rem] sm:text-3xl md:text-4xl lg:text-[3.5rem] xl:text-[3.75rem] leading-[1.1] tracking-tight">
+                <h1 className="mt-6 font-display font-bold text-white text-balance text-[1.5rem] sm:text-2xl md:text-3xl lg:text-[2.75rem] xl:text-[3.25rem] leading-[1.15] tracking-tight">
                   {slide.title.map((line, i) => (
                     <span key={i} className="block">
                       {line}
@@ -86,7 +86,7 @@ export function HeroSlider() {
                   ))}
                 </h1>
 
-                <p className="mt-7 max-w-xl text-base lg:text-lg text-white/80 leading-relaxed text-pretty">
+                <p className="mt-5 max-w-xl text-sm lg:text-base text-white/80 leading-relaxed text-pretty">
                   {slide.subtitle}
                 </p>
 
