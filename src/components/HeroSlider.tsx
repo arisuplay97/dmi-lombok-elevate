@@ -130,7 +130,7 @@ export function HeroSlider() {
         </div>
 
         {/* Bottom controls bar */}
-        <div className="mt-16 flex items-center justify-between border-t border-white/15 pt-6">
+        <div className="mt-16 lg:mt-20 flex items-center justify-between border-t border-white/15 pt-6">
           <div className="flex items-center gap-6">
             <div className="font-display font-semibold text-white text-sm">
               <span className="text-white">{String(selected + 1).padStart(2, "0")}</span>
