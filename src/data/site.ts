@@ -17,7 +17,7 @@ export const SITE = {
   shortName: "DMI",
   region: "Kabupaten Lombok Tengah",
   tagline: "Memakmurkan Masjid, Menguatkan Umat, Membangun Peradaban.",
-  address: "Jl. Jenderal Sudirman No. 12, Praya, Lombok Tengah, NTB 83511",
+  address: "Jl. TGH Moh Faesal Bogak No.99, Praya, Lombok Tengah, NTB 83511",
   email: "sekretariat@dmi-lomboktengah.or.id",
   phone: "(0370) 654 321",
   social: {

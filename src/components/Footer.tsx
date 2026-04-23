@@ -11,11 +11,9 @@ export function Footer() {
           {/* Brand */}
           <div className="lg:col-span-5">
             <div className="flex items-center gap-3">
-              <div className="bg-white/95 rounded-md p-1.5">
-                <img src={logo} alt="DMI" className="h-10 w-10" width={40} height={40} />
-              </div>
+              <img src={logo} alt="DMI" className="h-16 w-16 object-contain" width={64} height={64} />
               <div className="leading-tight">
-                <div className="font-display font-bold text-white text-base">Dewan Masjid Indonesia</div>
+                <div className="font-display font-bold text-white text-lg">Dewan Masjid Indonesia</div>
                 <div className="text-xs text-white/60 uppercase tracking-wider">{SITE.region}</div>
               </div>
             </div>
