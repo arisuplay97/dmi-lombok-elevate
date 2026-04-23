@@ -1,6 +1,6 @@
 import { Quote } from "lucide-react";
 import { Reveal } from "@/components/Reveal";
-import ketuaImg from "../../assets/ketua2.png";
+import ketuaImg from "../../assets/ketua.png";
 import { KETUA } from "@/data/site";
 
 export function KetuaMessage() {
