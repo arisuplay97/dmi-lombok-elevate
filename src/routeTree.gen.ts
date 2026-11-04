@@ -9,25 +9,15 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TugasRouteImport } from './routes/tugas'
-import { Route as PengaturanRouteImport } from './routes/pengaturan'
-import { Route as NotulenRouteImport } from './routes/notulen'
-import { Route as AgendaRouteImport } from './routes/agenda'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AgendaRouteImport } from './routes/agenda'
+import { Route as NotulenRouteImport } from './routes/notulen'
+import { Route as PengaturanRouteImport } from './routes/pengaturan'
+import { Route as TugasRouteImport } from './routes/tugas'
 
-const TugasRoute = TugasRouteImport.update({
-  id: '/tugas',
-  path: '/tugas',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PengaturanRoute = PengaturanRouteImport.update({
-  id: '/pengaturan',
-  path: '/pengaturan',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NotulenRoute = NotulenRouteImport.update({
-  id: '/notulen',
-  path: '/notulen',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgendaRoute = AgendaRouteImport.update({
@@ -35,9 +25,19 @@ const AgendaRoute = AgendaRouteImport.update({
   path: '/agenda',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const NotulenRoute = NotulenRouteImport.update({
+  id: '/notulen',
+  path: '/notulen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PengaturanRoute = PengaturanRouteImport.update({
+  id: '/pengaturan',
+  path: '/pengaturan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TugasRoute = TugasRouteImport.update({
+  id: '/tugas',
+  path: '/tugas',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -81,25 +81,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/tugas': {
-      id: '/tugas'
-      path: '/tugas'
-      fullPath: '/tugas'
-      preLoaderRoute: typeof TugasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pengaturan': {
-      id: '/pengaturan'
-      path: '/pengaturan'
-      fullPath: '/pengaturan'
-      preLoaderRoute: typeof PengaturanRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/notulen': {
-      id: '/notulen'
-      path: '/notulen'
-      fullPath: '/notulen'
-      preLoaderRoute: typeof NotulenRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agenda': {
@@ -109,11 +95,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgendaRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/notulen': {
+      id: '/notulen'
+      path: '/notulen'
+      fullPath: '/notulen'
+      preLoaderRoute: typeof NotulenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pengaturan': {
+      id: '/pengaturan'
+      path: '/pengaturan'
+      fullPath: '/pengaturan'
+      preLoaderRoute: typeof PengaturanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tugas': {
+      id: '/tugas'
+      path: '/tugas'
+      fullPath: '/tugas'
+      preLoaderRoute: typeof TugasRouteImport
       parentRoute: typeof rootRouteImport
     }
   }

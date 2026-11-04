@@ -2,7 +2,15 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/api-wangsaf/:path*",
+      "destination": "https://api.wangsaf.com/v1/:path*"
+    },
+    {
+      "source": "/api-cartesia/:path*",
+      "destination": "https://api.cartesia.ai/:path*"
+    },
+    {
+      "source": "/((?!assets/|icon|manifest\\.webmanifest|sw\\.js|api/).*)",
       "destination": "/index.html"
     }
   ],
