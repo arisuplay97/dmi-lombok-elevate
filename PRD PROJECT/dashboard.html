@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard Asisten Virtual Dirut</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#E9EAEC}
+a{color:#14171F}a:hover{color:#4B5BE0}
+.g{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.c{background:#fff;border-radius:24px;padding:22px;box-sizing:border-box}
+.h{background:repeating-linear-gradient(135deg,#C4C7CE 0 2px,#EEEFF2 2px 5px)}
+.pill{border:0;border-radius:999px;padding:11px 18px;font:500 14px 'Plus Jakarta Sans',system-ui,sans-serif;background:#F1F2F4;color:#14171F;cursor:pointer}
+@media(max-width:1000px){.g{grid-template-columns:1fr 1fr}.s2,.s3{grid-column:auto!important;grid-row:auto!important}}
+@media(max-width:640px){.g{grid-template-columns:1fr}nav{display:none!important}}
+</style>
+</head>
+<body>
+<div style="font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#14171F;max-width:1360px;margin:0 auto;padding:28px 32px 40px;box-sizing:border-box">
+
+<header style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+<div style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px"><span style="width:32px;height:32px;border-radius:10px;background:#6B7BFF;display:inline-block"></span>Asisten Dirut</div>
+<nav style="display:flex;gap:8px"><button class="pill" style="background:#14171F;color:#fff">Beranda</button><button class="pill">Agenda</button><button class="pill">Notulen</button><button class="pill">Tugas</button><button class="pill">Pengaturan</button></nav>
+<div style="display:flex;gap:8px;align-items:center"><button class="pill" aria-label="Cari" style="width:44px;height:44px;padding:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14171F" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button><button class="pill" aria-label="Notifikasi" style="width:44px;height:44px;padding:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14171F" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 17V11a6 6 0 0112 0v6l2 2H4z"/></svg></button><span style="width:44px;height:44px;border-radius:50%;background:#14171F;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600;font-size:14px">DR</span></div>
+</header>
+
+<h1 style="margin:36px 0 22px;font-size:44px;font-weight:600;letter-spacing:-.02em">Selamat pagi, <span style="color:#7A808C">[Nama Dirut]</span></h1>
+
+<div class="g">
+<section class="c s2" style="background:#14171F;color:#fff;grid-row:span 2;display:flex;flex-direction:column;gap:18px">
+<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:18px;font-weight:500">Asisten</span><span style="font-size:12px;background:#A6F23A;color:#14171F;border-radius:999px;padding:5px 12px;font-weight:600">Mendengarkan</span></div>
+<div style="display:flex;align-items:center;justify-content:center;gap:5px;height:110px">
+<i style="width:6px;height:30px;border-radius:3px;background:#A6F23A"></i><i style="width:6px;height:56px;border-radius:3px;background:#A6F23A"></i><i style="width:6px;height:84px;border-radius:3px;background:#A6F23A"></i><i style="width:6px;height:44px;border-radius:3px;background:#6B7BFF"></i><i style="width:6px;height:100px;border-radius:3px;background:#A6F23A"></i><i style="width:6px;height:62px;border-radius:3px;background:#6B7BFF"></i><i style="width:6px;height:36px;border-radius:3px;background:#A6F23A"></i><i style="width:6px;height:76px;border-radius:3px;background:#A6F23A"></i><i style="width:6px;height:26px;border-radius:3px;background:#6B7BFF"></i>
+</div>
+<div style="background:#232833;border-radius:18px;padding:16px">
+<div style="font-size:12px;color:#B4BAC6">08.55 · Pengingat suara</div>
+<p style="margin:6px 0 0;font-size:17px;line-height:1.45">Pak, Rapat Direksi dimulai 5 menit lagi di Ruang Rapat Utama.</p>
+</div>
+<div style="display:flex;gap:8px"><button class="pill" style="background:#A6F23A">Tunda 5 menit</button><button class="pill" style="background:#232833;color:#fff">Tutup</button></div>
+<button class="pill" style="margin-top:auto;display:flex;align-items:center;justify-content:center;gap:10px;background:#6B7BFF;color:#fff;padding:14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg>Bicara dengan asisten</button>
+</section>
+
+<section class="c"><div style="display:flex;justify-content:space-between"><span style="font-size:18px">Agenda hari ini</span><span style="font-size:12px;border:1px solid #D5D8DD;border-radius:999px;padding:4px 10px;color:#4A505C;height:fit-content">Terjadwal</span></div><div style="font-size:48px;font-weight:600;margin-top:22px">6</div><div style="font-size:13px;color:#4A505C;margin-top:4px">Berikutnya pukul 09.00</div></section>
+<section class="c"><div style="display:flex;justify-content:space-between"><span style="font-size:18px">Notulen</span><span style="font-size:12px;border:1px solid #D5D8DD;border-radius:999px;padding:4px 10px;color:#4A505C;height:fit-content">Total</span></div><div style="font-size:48px;font-weight:600;margin-top:22px">48</div><div style="font-size:13px;color:#4A505C;margin-top:4px">9 bulan ini · 2 diproses · 1 diperiksa</div></section>
+<section class="c"><div style="display:flex;justify-content:space-between"><span style="font-size:18px">Tugas terbuka</span><span style="font-size:12px;border:1px solid #D5D8DD;border-radius:999px;padding:4px 10px;color:#4A505C;height:fit-content">Minggu ini</span></div><div style="font-size:48px;font-weight:600;margin-top:22px">11</div><div style="font-size:13px;color:#4A505C;margin-top:4px">3 jatuh tempo dalam 2 hari</div></section>
+
+<section class="c s3" style="grid-column:span 2">
+<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:18px">Agenda minggu ini</span><span style="display:flex;gap:14px;font-size:12px;color:#4A505C"><span><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#6B7BFF;margin-right:5px"></i>Rapat</span><span><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#A6F23A;margin-right:5px"></i>Kunjungan</span><span><i class="h" style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px"></i>Lainnya</span></span></div>
+<div style="display:flex;justify-content:space-around;align-items:flex-end;height:190px;margin-top:18px;border-bottom:1px solid #E3E5E9">
+<div style="display:flex;align-items:flex-end;gap:4px"><i style="width:16px;height:60px;border-radius:9px 9px 0 0;background:#6B7BFF"></i><i style="width:16px;height:30px;border-radius:9px 9px 0 0;background:#A6F23A"></i><i class="h" style="width:16px;height:40px;border-radius:9px 9px 0 0"></i></div>
+<div style="display:flex;align-items:flex-end;gap:4px"><i style="width:16px;height:100px;border-radius:9px 9px 0 0;background:#6B7BFF"></i><i style="width:16px;height:50px;border-radius:9px 9px 0 0;background:#A6F23A"></i><i class="h" style="width:16px;height:30px;border-radius:9px 9px 0 0"></i></div>
+<div style="display:flex;align-items:flex-end;gap:4px"><i style="width:16px;height:130px;border-radius:9px 9px 0 0;background:#6B7BFF"></i><i style="width:16px;height:150px;border-radius:9px 9px 0 0;background:#A6F23A"></i><i class="h" style="width:16px;height:60px;border-radius:9px 9px 0 0"></i></div>
+<div style="display:flex;align-items:flex-end;gap:4px"><i style="width:16px;height:70px;border-radius:9px 9px 0 0;background:#6B7BFF"></i><i style="width:16px;height:20px;border-radius:9px 9px 0 0;background:#A6F23A"></i><i class="h" style="width:16px;height:80px;border-radius:9px 9px 0 0"></i></div>
+<div style="display:flex;align-items:flex-end;gap:4px"><i style="width:16px;height:50px;border-radius:9px 9px 0 0;background:#6B7BFF"></i><i style="width:16px;height:90px;border-radius:9px 9px 0 0;background:#A6F23A"></i><i class="h" style="width:16px;height:30px;border-radius:9px 9px 0 0"></i></div>
+</div>
+<div style="display:flex;justify-content:space-around;font-size:12px;color:#4A505C;margin-top:8px"><span>Sen</span><span>Sel</span><b style="color:#14171F">Rab</b><span>Kam</span><span>Jum</span></div>
+</section>
+
+<section class="c s3" style="grid-row:span 2;background:#F7F7F8;display:flex;flex-direction:column;gap:12px">
+<div style="font-size:18px">Jadwal hari ini</div><div style="font-size:12px;color:#4A505C;margin-top:-8px">Agenda dan kegiatan</div>
+<div style="display:flex;align-items:center;gap:10px"><div style="flex:1;display:flex;height:22px;border-radius:12px;overflow:hidden"><i style="width:50%;background:#A6F23A"></i><i class="h" style="flex:1"></i></div><b style="font-size:20px">3/6</b></div>
+<div style="background:#fff;border-radius:18px;padding:14px"><div style="font-weight:600;font-size:14px">Rapat Direksi</div><div style="font-size:12px;color:#4A505C;margin-top:2px">8 peserta</div><div style="display:flex;justify-content:space-between;font-size:12px;margin-top:12px;border-top:1px solid #ECEDF0;padding-top:10px"><span>09.00 – 10.30</span><span>Ruang Rapat Utama</span></div></div>
+<div style="background:#fff;border-radius:18px;padding:14px"><div style="font-weight:600;font-size:14px">Tinjauan Instalasi Pengolahan</div><div style="font-size:12px;color:#4A505C;margin-top:2px">Kunjungan lapangan</div><div style="display:flex;justify-content:space-between;font-size:12px;margin-top:12px;border-top:1px solid #ECEDF0;padding-top:10px"><span>11.00 – 12.00</span><span>Lokasi IPA</span></div></div>
+<div style="background:#fff;border-radius:18px;padding:14px"><div style="font-weight:600;font-size:14px">Koordinasi Kabag Teknik</div><div style="font-size:12px;color:#4A505C;margin-top:2px">3 peserta</div><div style="display:flex;justify-content:space-between;font-size:12px;margin-top:12px;border-top:1px solid #ECEDF0;padding-top:10px"><span>14.00 – 15.00</span><span>Ruang Dirut</span></div></div>
+</section>
+
+<section class="c">
+<div style="font-size:18px">Pengiriman WhatsApp</div><div style="font-size:12px;color:#4A505C">Jadwal otomatis ke Dirut dan sekretariat</div>
+<div style="display:flex;justify-content:space-between;font-size:14px;margin-top:20px"><span>Briefing pagi 06.30</span><b>Terkirim</b></div>
+<div style="display:flex;justify-content:space-between;font-size:14px;margin-top:10px"><span>Pengingat 30 menit</span><b>Terkirim</b></div>
+<div style="display:flex;justify-content:space-between;font-size:14px;margin-top:10px"><span>Pengingat 5 menit</span><b style="color:#4B5BE0">08.55</b></div>
+<div style="display:flex;height:16px;border-radius:9px;overflow:hidden;margin-top:20px"><i style="width:34%;background:#6B7BFF"></i><i style="width:34%;background:#A6F23A"></i><i class="h" style="flex:1"></i></div>
+</section>
+
+<section class="c" style="grid-column:span 2">
+<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:18px">Notulen terbaru</span><button class="pill" style="background:#14171F;color:#fff">Unggah audio</button></div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px"><div><div style="font-size:30px;font-weight:600">48</div><div style="font-size:12px;color:#4A505C">Total notulen</div></div><div><div style="font-size:30px;font-weight:600">9</div><div style="font-size:12px;color:#4A505C">Bulan ini</div></div><div><div style="font-size:30px;font-weight:600">126</div><div style="font-size:12px;color:#4A505C">Tugas dihasilkan</div></div><div><div style="font-size:30px;font-weight:600">62 jam</div><div style="font-size:12px;color:#4A505C">Total rekaman</div></div></div>
+<div style="display:flex;height:14px;border-radius:8px;overflow:hidden;margin-top:16px"><i style="width:94%;background:#A6F23A"></i><i style="width:2%;background:#6B7BFF"></i><i class="h" style="flex:1"></i></div>
+<div style="display:flex;gap:16px;font-size:12px;color:#4A505C;margin:8px 0 6px"><span><b style="color:#14171F">45</b> selesai</span><span><b style="color:#14171F">1</b> diperiksa</span><span><b style="color:#14171F">2</b> diproses</span></div>
+<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #ECEDF0"><div><div style="font-weight:600;font-size:14px">Rapat Direksi Bulanan</div><div style="font-size:12px;color:#4A505C">3 keputusan · 5 tugas</div></div><span style="font-size:12px;background:#A6F23A;border-radius:999px;padding:5px 12px;font-weight:600">Selesai</span></div>
+<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #ECEDF0"><div><div style="font-weight:600;font-size:14px">Koordinasi Unit Pelayanan</div><div style="font-size:12px;color:#4A505C">Menunggu pemeriksaan sekretariat</div></div><span style="font-size:12px;background:#E4E7FF;color:#2F3DB5;border-radius:999px;padding:5px 12px;font-weight:600">Diperiksa</span></div>
+<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0 0"><div><div style="font-weight:600;font-size:14px">Rapat Evaluasi Triwulan</div><div style="font-size:12px;color:#4A505C">Audio 1 jam 12 menit</div></div><span class="h" style="font-size:12px;border-radius:999px;padding:5px 12px;font-weight:600">Diproses</span></div>
+<a href="#" style="display:inline-block;margin-top:14px;font-size:13px;font-weight:600">Lihat semua 48 notulen</a>
+</section>
+</div>
+<p style="font-size:12px;color:#5B616E;margin:20px 0 0">Data pada tampilan ini hanya contoh.</p>
+</div>
+</body>
+</html>

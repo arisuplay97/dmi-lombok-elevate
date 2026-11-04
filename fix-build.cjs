@@ -30,8 +30,8 @@ const html = `<!doctype html>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dewan Masjid Indonesia — Kabupaten Lombok Tengah</title>
-    <meta name="description" content="Situs resmi Dewan Masjid Indonesia (DMI) Kabupaten Lombok Tengah. Memakmurkan masjid, menguatkan umat, membangun peradaban." />
+    <title>Asisten Virtual Dirut — Perumdam Tirta Ardhia Rinjani</title>
+    <meta name="description" content="Asisten Virtual Direktur Utama & Sekretariat Perumdam Tirta Ardhia Rinjani (PDAM Kabupaten Lombok Tengah)." />
     ${cssTags}
     ${jsTags}
   </head>

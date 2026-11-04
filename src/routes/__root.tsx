@@ -1,25 +1,25 @@
 import { Outlet, Link, createRootRoute } from "@tanstack/react-router";
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
+import { Toaster } from "sonner";
+import { PdamStoreProvider } from "@/lib/pdam-store";
+import { AppShell } from "@/components/pdam/AppShell";
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <div className="eyebrow">404</div>
-        <h1 className="mt-3 font-display text-5xl font-bold text-ink">Halaman tidak ditemukan</h1>
-        <p className="mt-4 text-base text-ink-muted">
-          Halaman yang Anda cari tidak tersedia atau telah dipindahkan.
-        </p>
-        <div className="mt-8">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-brand-deep px-5 py-3 text-sm font-semibold text-white hover:bg-brand transition-colors"
-          >
-            Kembali ke Beranda
-          </Link>
-        </div>
-      </div>
+    <div className="c" style={{ textAlign: "center", padding: "56px 24px", marginTop: 28 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "#6B7BFF" }}>404</div>
+      <h1 style={{ fontSize: 32, fontWeight: 700, margin: "8px 0 10px" }}>
+        Halaman tidak ditemukan
+      </h1>
+      <p style={{ fontSize: 14, color: "#4A505C", margin: "0 0 22px" }}>
+        Modul yang Anda cari tidak tersedia di portal Asisten Virtual Dirut.
+      </p>
+      <Link
+        to="/"
+        className="pill"
+        style={{ background: "#14171F", color: "#fff" }}
+      >
+        Kembali ke Beranda
+      </Link>
     </div>
   );
 }
@@ -31,12 +31,11 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   return (
-    <>
-      <Navbar />
-      <main className="pt-0">
+    <PdamStoreProvider>
+      <AppShell>
         <Outlet />
-      </main>
-      <Footer />
-    </>
+      </AppShell>
+      <Toaster position="bottom-right" richColors />
+    </PdamStoreProvider>
   );
 }
