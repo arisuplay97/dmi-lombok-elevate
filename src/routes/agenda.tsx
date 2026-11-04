@@ -290,6 +290,7 @@ function AgendaPage() {
     addAgenda,
     updateAgenda,
     deleteAgenda,
+    requestDeleteAgenda,
     toggleAgendaDone,
     openCreateNotulenFromAgenda,
     openCreateNotulenManual,
@@ -3013,7 +3014,7 @@ function AgendaPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    deleteAgenda(inspectedAgenda.id);
+                    requestDeleteAgenda(inspectedAgenda.id);
                     setInspectedAgenda(null);
                   }}
                   style={{

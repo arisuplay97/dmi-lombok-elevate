@@ -8,6 +8,7 @@ import { CreateNotulenModal } from "./CreateNotulenModal";
 import { FloatingTiaraWidget } from "./FloatingTiaraWidget";
 import { SearchModal } from "./SearchModal";
 import { NotulenChoiceModal } from "./NotulenChoiceModal";
+import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import { MobilePwaApp } from "./MobilePwaApp";
 
 const NAV_ITEMS = [
@@ -581,6 +582,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <FloatingTiaraWidget />
       <NotulenChoiceModal />
       <VoiceAgendaConfirmModal />
+      <DeleteConfirmModal />
       <UploadAudioModal />
       <CreateNotulenModal />
       <SearchModal />

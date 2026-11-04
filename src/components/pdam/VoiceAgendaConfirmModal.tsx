@@ -138,6 +138,30 @@ export function VoiceAgendaConfirmModal() {
           “{voiceDraft.kalimatAsli}”
         </div>
 
+        {/* Banner Live Voice Edit & Confirmation */}
+        <div
+          style={{
+            marginTop: 10,
+            background: "rgba(107, 123, 255, 0.12)",
+            border: "1px solid rgba(107, 123, 255, 0.35)",
+            borderRadius: 14,
+            padding: "10px 14px",
+            fontSize: 12.5,
+            color: "#4338CA",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <span style={{ fontSize: 16 }}>🎙️</span>
+          <div>
+            <b>Voice Assistant Aktif:</b> Edit langsung lewat suara (misal:{" "}
+            <i>“Ganti jam 10”</i>, <i>“Ubah lokasi di Aula”</i>) atau ucapkan{" "}
+            <b style={{ color: "#15803D" }}>“Simpan”</b> /{" "}
+            <b style={{ color: "#B91C1C" }}>“Batal”</b> tanpa perlu menekan tombol.
+          </div>
+        </div>
+
         {conflicts.length > 0 && (
           <div
             style={{
@@ -391,7 +415,7 @@ export function VoiceAgendaConfirmModal() {
               className="pill"
               style={{ background: "#A6F23A", color: "#14171F", fontWeight: 700 }}
             >
-              <Check size={16} /> Konfirmasi & Simpan
+              <Check size={16} /> Simpan Agenda (atau ucapkan “Simpan”)
             </button>
           </div>
         </form>

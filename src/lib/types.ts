@@ -190,6 +190,14 @@ export interface VoiceAgendaDraft {
   kalimatAsli: string;
 }
 
+export interface PendingDeleteConfirm {
+  type: "agenda" | "notulen";
+  id: number;
+  title: string;
+  subtitle?: string;
+  meta?: Record<string, unknown>;
+}
+
 export interface NotulenFormPrefill {
   judul: string;
   tanggalIso: string;
@@ -210,6 +218,8 @@ export type DialogStage =
   | "idle"
   | "active_session"
   | "awaiting_notulen_choice"
-  | "awaiting_notulen_followup";
+  | "awaiting_notulen_followup"
+  | "awaiting_agenda_confirmation"
+  | "awaiting_delete_confirmation";
 
 export type NotulenReadScope = "lengkap" | "keputusan" | "tugas";

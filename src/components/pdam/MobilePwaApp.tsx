@@ -5,6 +5,7 @@ import { TODAY_ISO } from "@/data/pdam-data";
 import { compressImageFile } from "@/lib/ai-service";
 import { usePdamStore } from "@/lib/pdam-store";
 import { getGreetingWita, normalizeTimeDot } from "@/lib/tiara-speech";
+import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import type {
   AgendaItem,
   AiAuthScheme,
@@ -61,6 +62,7 @@ const ICON_PATHS: Record<string, string> = {
   vol: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>',
   chevL: '<path d="M15 18l-6-6 6-6"/>',
   chevR: '<path d="M9 18l6-6-6-6"/>',
+  trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>',
 };
 
 function PwaIcon({ name, size }: { name: keyof typeof ICON_PATHS; size?: number }) {
@@ -322,6 +324,11 @@ export function MobilePwaApp({
     addAgenda,
     updateAgenda,
     deleteAgenda,
+    requestDeleteAgenda,
+    requestDeleteNotulen,
+    confirmPendingDelete,
+    cancelPendingDelete,
+    pendingDelete,
     toggleAgendaDone,
     uploadAudioNotulen,
     createManualNotulen,
@@ -1939,7 +1946,7 @@ export function MobilePwaApp({
                   setSheet({ kind: "none" });
                 }}
                 onDelete={(id) => {
-                  deleteAgenda(id);
+                  requestDeleteAgenda(id);
                   setSheet({ kind: "none" });
                 }}
                 onToggleDone={(id) => {
@@ -1982,6 +1989,7 @@ export function MobilePwaApp({
                 onApproveLock={approveAndLockNotulen}
                 onDeleteAudio={deleteNotulenAudio}
                 onSendWa={sendNotulenSummaryToWa}
+                onRequestDelete={(id) => requestDeleteNotulen(id)}
               />
             )}
 
@@ -2052,6 +2060,7 @@ export function MobilePwaApp({
           </div>
         </div>
       )}
+      <DeleteConfirmModal />
     </div>
   );
 }
@@ -2174,6 +2183,29 @@ function MobileVoiceSheet({
               </span>
             </div>
           )}
+          {/* Banner Live Voice Edit & Confirmation */}
+          <div
+            style={{
+              marginTop: 8,
+              marginBottom: 10,
+              background: "rgba(107, 123, 255, 0.12)",
+              border: "1px solid rgba(107, 123, 255, 0.35)",
+              borderRadius: 12,
+              padding: "10px 12px",
+              fontSize: 12,
+              color: "var(--fg)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span style={{ fontSize: 16 }}>🎙️</span>
+            <div>
+              <b>Voice Assistant Aktif:</b> Edit langsung lewat suara (misal:{" "}
+              <i>“Ganti jam 10”</i>, <i>“Ubah lokasi di Aula”</i>) atau ucapkan{" "}
+              <b style={{ color: "#16a34a" }}>“Simpan”</b> tanpa menekan tombol.
+            </div>
+          </div>
           <div className="row" style={{ marginTop: 10 }}>
             <button
               type="button"
@@ -2181,10 +2213,10 @@ function MobileVoiceSheet({
               style={{ flex: 1 }}
               onClick={onConfirmDraft}
             >
-              Konfirmasi dan simpan
+              Simpan agenda (atau ucapkan “Simpan”)
             </button>
             <button type="button" className="btn g" onClick={onDiscardDraft}>
-              Ulangi
+              Batal
             </button>
           </div>
         </div>
@@ -2637,6 +2669,7 @@ function MobileNotulenDetailSheet({
   onApproveLock,
   onDeleteAudio,
   onSendWa,
+  onRequestDelete,
 }: {
   notulen?: NotulenItem;
   tugasList: TugasItem[];
@@ -2653,6 +2686,7 @@ function MobileNotulenDetailSheet({
   onApproveLock: (id: number) => void;
   onDeleteAudio: (id: number) => void;
   onSendWa: (id: number) => void;
+  onRequestDelete: (id: number) => void;
 }) {
   const [subTab, setSubTab] = useState<NotulenDetailTab>("ring");
   const [editing, setEditing] = useState(false);
@@ -3022,6 +3056,18 @@ function MobileNotulenDetailSheet({
                 Hapus audio asli
               </button>
             )}
+            <button
+              type="button"
+              className="btn g sm"
+              style={{
+                color: "#EF4444",
+                borderColor: "rgba(239, 68, 68, 0.4)",
+              }}
+              onClick={() => onRequestDelete(notulen.id)}
+            >
+              <PwaIcon name="trash" size={13} />
+              <span style={{ marginLeft: 4 }}>Hapus notulen</span>
+            </button>
           </div>
         </>
       )}

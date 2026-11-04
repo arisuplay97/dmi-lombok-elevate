@@ -47,6 +47,7 @@ import {
   resumeSpeaking,
   speakWithConfiguredProvider,
   stopSpeaking,
+  updateAgendaDraftFromSpeech,
   type BrowserSpeechRecognition,
 } from "@/lib/tiara-speech";
 import {
@@ -63,6 +64,7 @@ import type {
   NotulenItem,
   NotulenPhoto,
   NotulenReadScope,
+  PendingDeleteConfirm,
   StatusNotulen,
   TugasItem,
   UserRole,
@@ -148,6 +150,15 @@ interface PdamStoreValue {
   // Modals
   voiceDraft: VoiceAgendaDraft | null;
   setVoiceDraft: (draft: VoiceAgendaDraft | null) => void;
+  pendingDelete: PendingDeleteConfirm | null;
+  setPendingDelete: (item: PendingDeleteConfirm | null) => void;
+  confirmVoiceAgenda: () => void;
+  cancelVoiceAgenda: () => void;
+  deleteNotulen: (id: number) => void;
+  requestDeleteAgenda: (id: number) => void;
+  requestDeleteNotulen: (id: number) => void;
+  confirmPendingDelete: () => void;
+  cancelPendingDelete: () => void;
   uploadModalOpen: boolean;
   setUploadModalOpen: (open: boolean) => void;
   createNotulenModalOpen: boolean;
@@ -590,6 +601,13 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
 
   // Modals
   const [voiceDraft, setVoiceDraft] = useState<VoiceAgendaDraft | null>(null);
+  const voiceDraftRef = useRef<VoiceAgendaDraft | null>(voiceDraft);
+  voiceDraftRef.current = voiceDraft;
+  const [pendingDelete, setPendingDelete] = useState<PendingDeleteConfirm | null>(
+    null
+  );
+  const pendingDeleteRef = useRef<PendingDeleteConfirm | null>(pendingDelete);
+  pendingDeleteRef.current = pendingDelete;
   const [uploadModalOpen, setUploadModalOpen] = useState<boolean>(false);
   const [createNotulenModalOpen, setCreateNotulenModalOpen] =
     useState<boolean>(false);
@@ -1349,13 +1367,242 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
+  // CRUD Agenda (Add & Delete)
+  const addAgenda = useCallback((item: Omit<AgendaItem, "id">): AgendaItem => {
+    const newItem: AgendaItem = {
+      ...item,
+      id: Date.now(),
+      mulai: normalizeTimeDot(item.mulai),
+      selesai: normalizeTimeDot(item.selesai),
+    };
+    setAgendas((prev) =>
+      [...prev, newItem].sort((a, b) =>
+        `${a.tanggal}-${a.mulai}`.localeCompare(`${b.tanggal}-${b.mulai}`)
+      )
+    );
+    setWaLogs((prev) => [
+      {
+        id: Date.now() + 1,
+        waktu: newItem.mulai,
+        labelDashboard: `Pengingat: ${newItem.judul.slice(0, 18)}`,
+        tujuan: "Dirut & Sekretariat",
+        isi: `Pengingat otomatis terjadwal untuk agenda "${newItem.judul}" (${newItem.mulai} – ${newItem.selesai}) di ${newItem.lokasi}.`,
+        status: "Terjadwal",
+      },
+      ...prev,
+    ]);
+    toast.success(
+      `Agenda "${newItem.judul}" berhasil disimpan & pengingat WA dijadwalkan.`
+    );
+    return newItem;
+  }, []);
+
+  const deleteAgenda = useCallback((id: number) => {
+    setAgendas((prev) => prev.filter((a) => a.id !== id));
+    toast.success("Agenda dihapus.");
+  }, []);
+
+  // CRUD Notulen Delete
+  const deleteNotulen = useCallback((id: number) => {
+    setNotulenList((prev) => prev.filter((n) => n.id !== id));
+    setTugasList((prev) => prev.filter((t) => t.notulenId !== id));
+    if (lastActiveNotulenIdRef.current === id) {
+      setSelectedNotulenId(null as unknown as number);
+      setFocusedNotulenId(null);
+      lastActiveNotulenIdRef.current = null;
+      focusedNotulenIdRef.current = null;
+    }
+    toast.success("Notulen berhasil dihapus.");
+  }, []);
+
+  // Konfirmasi Penghapusan Agenda & Notulen (Modal + Suara)
+  const requestDeleteNotulen = useCallback(
+    (id: number) => {
+      const notulen = notulenRef.current.find((n) => n.id === id);
+      if (!notulen) return;
+      const item: PendingDeleteConfirm = {
+        type: "notulen",
+        id: notulen.id,
+        title: notulen.judul,
+        subtitle: `${notulen.tanggal}${notulen.lokasi ? ` · ${notulen.lokasi}` : ""}`,
+      };
+      setPendingDelete(item);
+      pendingDeleteRef.current = item;
+      speakWithTiara(
+        `Apakah Bapak yakin ingin menghapus notulen "${notulen.judul}"? Silakan tekan Hapus Sekarang pada layar atau ucapkan Iya.`,
+        { nextStage: "awaiting_delete_confirmation", keepSessionAlive: true }
+      );
+    },
+    [speakWithTiara]
+  );
+
+  const requestDeleteAgenda = useCallback(
+    (id: number) => {
+      const agenda = agendasRef.current.find((a) => a.id === id);
+      if (!agenda) return;
+      const item: PendingDeleteConfirm = {
+        type: "agenda",
+        id: agenda.id,
+        title: agenda.judul,
+        subtitle: `${agenda.tanggal} · Pukul ${agenda.mulai}–${agenda.selesai}`,
+      };
+      setPendingDelete(item);
+      pendingDeleteRef.current = item;
+      speakWithTiara(
+        `Apakah Bapak yakin ingin menghapus agenda "${agenda.judul}"? Silakan tekan Hapus Sekarang pada layar atau ucapkan Iya.`,
+        { nextStage: "awaiting_delete_confirmation", keepSessionAlive: true }
+      );
+    },
+    [speakWithTiara]
+  );
+
+  const confirmPendingDelete = useCallback(() => {
+    const target = pendingDeleteRef.current;
+    if (!target) return;
+    if (target.type === "notulen") {
+      deleteNotulen(target.id);
+      speakWithTiara(`Notulen "${target.title}" telah berhasil dihapus.`, {
+        nextStage: "active_session",
+      });
+    } else if (target.type === "agenda") {
+      deleteAgenda(target.id);
+      speakWithTiara(`Agenda "${target.title}" telah berhasil dihapus.`, {
+        nextStage: "active_session",
+      });
+    }
+    setPendingDelete(null);
+    pendingDeleteRef.current = null;
+  }, [deleteNotulen, deleteAgenda, speakWithTiara]);
+
+  const cancelPendingDelete = useCallback(() => {
+    setPendingDelete(null);
+    pendingDeleteRef.current = null;
+    speakWithTiara("Penghapusan dibatalkan.", {
+      nextStage: "active_session",
+    });
+  }, [speakWithTiara]);
+
+  // Konfirmasi Agenda Suara (Simpan Otomatis & Batal)
+  const confirmVoiceAgenda = useCallback(() => {
+    const draft = voiceDraftRef.current;
+    if (!draft || !draft.judul.trim()) return;
+    const newItem: AgendaItem = {
+      id: Date.now(),
+      judul: draft.judul.trim(),
+      tanggal: draft.tanggal,
+      mulai: normalizeTimeDot(draft.mulai),
+      selesai: normalizeTimeDot(draft.selesai),
+      lokasi: draft.lokasi.trim() || "Ruang Rapat Utama",
+      jenis: draft.jenis,
+      peserta: Number(draft.peserta) || 1,
+      labelPeserta:
+        draft.jenis === "kunjungan"
+          ? "Kunjungan lapangan"
+          : `${draft.peserta} peserta`,
+      catatan: draft.catatan,
+      sumber: "suara",
+      berulang: "tidak",
+      selesaiAcara: false,
+    };
+    setAgendas((prev) =>
+      [...prev, newItem].sort((a, b) =>
+        `${a.tanggal}-${a.mulai}`.localeCompare(`${b.tanggal}-${b.mulai}`)
+      )
+    );
+    setVoiceDraft(null);
+    voiceDraftRef.current = null;
+    speakWithTiara(
+      `Siap Pak Dirut, agenda "${draft.judul}" pada ${draft.tanggal} pukul ${draft.mulai} berhasil dijadwalkan.`,
+      { nextStage: "active_session" }
+    );
+    toast.success(`Agenda "${draft.judul}" tersimpan.`);
+  }, [speakWithTiara]);
+
+  const cancelVoiceAgenda = useCallback(() => {
+    setVoiceDraft(null);
+    voiceDraftRef.current = null;
+    speakWithTiara("Draf agenda dibatalkan.", {
+      nextStage: "active_session",
+    });
+  }, [speakWithTiara]);
+
   // Mesin Pemroses Perintah Kontekstual Multi-Turn
   const executeAssistantCommand = useCallback(
     async (rawCommand: string) => {
       const cmd = rawCommand.trim();
       const lower = cmd.toLowerCase();
 
-      // 0. Kontrol akhiri sesi / tutup percakapan
+      const activeNotulenId =
+        focusedNotulenIdRef.current ??
+        lastActiveNotulenIdRef.current ??
+        selectedNotulenIdRef.current ??
+        null;
+      const activeNotulen = activeNotulenId
+        ? notulenRef.current.find((n) => n.id === activeNotulenId) ?? null
+        : null;
+
+      const hasDemonstrativeReference =
+        /\b(tersebut|tadi|barusan|notulen ini|rapat ini|notulen itu|rapat itu|yang tadi)\b/i.test(
+          lower
+        );
+      const isInNotulenFollowup =
+        dialogStageRef.current === "awaiting_notulen_followup";
+
+      // 0a. RESPON KONFIRMASI HAPUS (POPUP SEDANG TERBUKA)
+      if (pendingDeleteRef.current) {
+        const isConfirmDelete =
+          /\b(iya|ya|hapus|oke|ok|lanjutkan|konfirmasi|setuju|benar|hapus saja|iya hapus|hapus sekarang)\b/i.test(
+            lower
+          ) && !/\b(batal|jangan|enggak|tidak)\b/i.test(lower);
+        if (isConfirmDelete) {
+          confirmPendingDelete();
+          return;
+        }
+        const isCancelDelete =
+          /\b(batal|batalkan|jangan|tidak jadi|enggak|stop)\b/i.test(lower);
+        if (isCancelDelete) {
+          cancelPendingDelete();
+          return;
+        }
+      }
+
+      // 0b. RESPON KONFIRMASI ATAU EDIT SUARA DRAF AGENDA (POPUP SEDANG TERBUKA)
+      if (voiceDraftRef.current) {
+        const isSaveConfirm =
+          /\b(simpan|jadwalkan|konfirmasi|oke|ok|ya|iya|setuju|catat|benar|lanjutkan|sudah|simpan agenda|oke simpan)\b/i.test(
+            lower
+          ) && !/\b(batal|jangan|ubah|ganti)\b/i.test(lower);
+        if (isSaveConfirm) {
+          confirmVoiceAgenda();
+          return;
+        }
+        const isCancelDraft =
+          /\b(batal|batalkan|jangan|tutup|hapus draf|enggak|tidak jadi)\b/i.test(
+            lower
+          );
+        if (isCancelDraft) {
+          cancelVoiceAgenda();
+          return;
+        }
+
+        // Coba periksa apakah perintah suara bermaksud mengedit field draf agenda
+        const editResult = updateAgendaDraftFromSpeech(
+          voiceDraftRef.current,
+          cmd,
+          TODAY_ISO
+        );
+        if (editResult) {
+          setVoiceDraft(editResult.updated);
+          voiceDraftRef.current = editResult.updated;
+          speakWithTiara(editResult.speechResponse, {
+            nextStage: "awaiting_agenda_confirmation",
+            keepSessionAlive: true,
+          });
+          return;
+        }
+      }
+
+      // 0c. Kontrol akhiri sesi / tutup percakapan
       if (
         /^(?:terima kasih|makasih|cukup sekian|selesai|akhiri percakapan|sudah cukup)\b/i.test(
           lower
@@ -1370,7 +1617,7 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // 0b. Kontrol ulangi ucapan terakhir
+      // 0d. Kontrol ulangi ucapan terakhir
       if (/^(?:ulangi|tolong ulangi|baca ulang)\b/i.test(lower)) {
         if (lastSpokenFullTextRef.current) {
           speakWithTiara(lastSpokenFullTextRef.current, {
@@ -1380,12 +1627,12 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // 0c. Sapaan Ramah Sesuai Waktu WITA (Lombok / Bali / Indonesia Tengah)
+      // 0e. Sapaan Ramah Sesuai Waktu WITA (Lombok / Bali / Indonesia Tengah)
       if (
         /^(?:halo|hai|hey|hei|pagi|siang|sore|malam|selamat pagi|selamat siang|selamat sore|selamat malam|assalamualaikum)\b/i.test(
           lower
         ) &&
-        !/\b(jadwal|agenda|notulen|tugas|buat|catat|tambah|baca|kirim)\b/i.test(lower)
+        !/\b(jadwal|agenda|notulen|tugas|buat|catat|tambah|baca|kirim|hapus|cari)\b/i.test(lower)
       ) {
         const greetingWita = getGreetingWita();
         speakWithTiara(
@@ -1393,6 +1640,65 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
           { nextStage: "active_session", withChime: "wake" }
         );
         return;
+      }
+
+      // 0f. PERINTAH HAPUS NOTULEN ATAU AGENDA VIA SUARA
+      const isDeleteCmd =
+        /\b(hapus|delete|hilangkan|buang)\b/i.test(lower) &&
+        !/\b(audio|suara|foto|file audio)\b/i.test(lower);
+
+      if (isDeleteCmd) {
+        // Hapus Notulen
+        if (
+          /\b(notulen|notulensi|hasil rapat|transkrip)\b/i.test(lower) ||
+          ((hasDemonstrativeReference || /\b(ini|tersebut|yang ini)\b/i.test(lower)) && activeNotulen)
+        ) {
+          let targetNotulen = activeNotulen;
+          if (!targetNotulen || (!hasDemonstrativeReference && !/\b(ini|tersebut)\b/i.test(lower))) {
+            const searchRes = searchNotulenSmart(cmd, notulenRef.current, TODAY_ISO);
+            if (searchRes.matches.length > 0) {
+              targetNotulen = searchRes.matches[0];
+            }
+          }
+          if (targetNotulen) {
+            requestDeleteNotulen(targetNotulen.id);
+            return;
+          } else {
+            speakWithTiara(
+              "Mohon maaf Pak Dirut, saya tidak menemukan notulen yang dimaksud untuk dihapus.",
+              { nextStage: "active_session" }
+            );
+            return;
+          }
+        }
+
+        // Hapus Agenda
+        if (/\b(agenda|jadwal|acara|pertemuan|kunjungan|rapat)\b/i.test(lower)) {
+          const qRes = resolveScheduleQuery(cmd, TODAY_ISO);
+          let targetAgenda = agendasRef.current.find((a) =>
+            qRes.queryDates.includes(a.tanggal)
+          );
+          if (!targetAgenda) {
+            const cleanedQuery = lower
+              .replace(/\b(tolong|tiara|hapus|delete|agenda|jadwal|acara)\b/gi, "")
+              .trim();
+            if (cleanedQuery.length >= 3) {
+              targetAgenda = agendasRef.current.find((a) =>
+                a.judul.toLowerCase().includes(cleanedQuery)
+              );
+            }
+          }
+          if (targetAgenda) {
+            requestDeleteAgenda(targetAgenda.id);
+            return;
+          } else {
+            speakWithTiara(
+              "Mohon maaf Pak Dirut, saya tidak menemukan agenda yang dimaksud untuk dihapus.",
+              { nextStage: "active_session" }
+            );
+            return;
+          }
+        }
       }
 
       // 1. JIKA SEDANG MENUNGGU KONFIRMASI PILIHAN DARI BEBERAPA KANDIDAT NOTULEN MIRIP
@@ -1435,17 +1741,7 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // 2. TINDAK LANJUT KONTEKSTUAL PADA NOTULEN YANG SEDANG DIBUKA / DIBICARAKAN (Melanjutkan Percakapan!)
-      const activeNotulenId =
-        focusedNotulenIdRef.current ??
-        lastActiveNotulenIdRef.current ??
-        selectedNotulenIdRef.current ??
-        null;
-      const activeNotulen = activeNotulenId
-        ? notulenRef.current.find((n) => n.id === activeNotulenId) ?? null
-        : null;
-
-      // 2f. Kirim notulen yang sedang dibahas ke WhatsApp (Aksi Langsung)
+      // 2. TINDAK LANJUT KONTEKSTUAL PADA NOTULEN YANG SEDANG DIBUKA / DIBICARAKAN
       if (
         (/\b(kirim|kirimkan|bagikan|share|japri)\b.*\b(wa|whatsapp)\b/i.test(
           lower
@@ -1461,6 +1757,75 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // 3. PENCARIAN & NAVIGASI NOTULEN VIA SUARA (Harus dijalankan sebelum hasAiKey!)
+      const isAskingNotulenSearch =
+        ((!hasDemonstrativeReference && !isInNotulenFollowup) ||
+          /\b(cari|carikan|notulen lain|lainnya)\b/i.test(lower)) &&
+        ((/\b(carikan|cari|bukakan|buka|tampilkan|munculkan|lihat|cek)\b/i.test(
+          lower
+        ) &&
+          /\b(notulen|notulensi|hasil rapat|transkrip|rapat)\b/i.test(lower)) ||
+          (/\b(notulen|notulensi)\b/i.test(lower) &&
+            /\b(tanggal|tgl|bulan|januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember|terbaru|terakhir|kemarin|hari ini|rapat)\b/i.test(
+              lower
+            )) ||
+          /^(?:notulen|notulensi)\s+[a-z0-9]/i.test(lower) ||
+          /\b(daftar notulen|ada notulen apa)\b/i.test(lower));
+
+      if (isAskingNotulenSearch) {
+        const searchRes = searchNotulenSmart(
+          cmd,
+          notulenRef.current,
+          TODAY_ISO
+        );
+
+        if (searchRes.matches.length === 0) {
+          speakWithTiara(
+            `Mohon maaf Pak Dirut, saya belum menemukan notulen yang cocok dengan ${searchRes.queryDescription}. Silakan sebutkan kata kunci atau bulan lainnya.`,
+            { nextStage: "active_session" }
+          );
+          return;
+        }
+
+        if (searchRes.matches.length === 1) {
+          const single = searchRes.matches[0];
+          openAndFocusNotulen(single);
+          if (searchRes.wantsImmediateRead) {
+            const script = buildNotulenReadoutText(
+              single,
+              tugasRef.current,
+              "lengkap"
+            );
+            speakWithTiara(script, { nextStage: "awaiting_notulen_followup" });
+          } else {
+            speakWithTiara(
+              `Baik Pak Dirut, ini notulen ${single.judul} tanggal ${single.tanggal}. Apakah ingin langsung saya bacakan ringkasan beserta poin-poin keputusannya?`,
+              { nextStage: "awaiting_notulen_followup" }
+            );
+          }
+          return;
+        }
+
+        // Lebih dari 1 notulen berkaitan -> Munculkan pop-up tengah & tanyakan konfirmasi kepada Dirut!
+        const topCandidates = searchRes.matches.slice(0, 4);
+        setCandidateNotulens(topCandidates);
+        candidateNotulensRef.current = topCandidates;
+        setCandidateQueryLabel(searchRes.queryDescription);
+        setCandidateMatchReasons(searchRes.matchReasons);
+        pendingAutoReadRef.current = searchRes.wantsImmediateRead;
+
+        const ordLabels = ["Pertama", "Kedua", "Ketiga", "Keempat"];
+        const listSpoken = topCandidates
+          .map((c, idx) => `${ordLabels[idx]}, ${c.judul} (${c.tanggal})`)
+          .join("; ");
+
+        speakWithTiara(
+          `Pak Dirut, ada ${topCandidates.length} notulen yang berkaitan: ${listSpoken}. Silakan pilih pada layar atau sebutkan nomornya.`,
+          { nextStage: "awaiting_notulen_choice", keepSessionAlive: true }
+        );
+        return;
+      }
+
       // 4. TAMBAH / CATAT AGENDA LEWAT SUARA (Aksi Form Langsung)
       if (
         /\b(tambah|tambahkan|buat|buatkan|catat|jadwalkan)\b/i.test(lower) &&
@@ -1470,9 +1835,10 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
       ) {
         const draft = extractAgendaFromSpeech(cmd, TODAY_ISO);
         setVoiceDraft(draft);
+        voiceDraftRef.current = draft;
         speakWithTiara(
-          `Baik Pak Dirut, saya menyiapkan draf agenda ${draft.judul} pukul ${draft.mulai} di ${draft.lokasi}. Silakan konfirmasi pada layar untuk menyimpan.`,
-          { nextStage: "active_session" }
+          `Baik Pak Dirut, saya menyiapkan draf agenda ${draft.judul} pukul ${draft.mulai} di ${draft.lokasi}. Silakan ucapkan Simpan atau sebutkan perubahan seperti jam atau lokasinya.`,
+          { nextStage: "awaiting_agenda_confirmation", keepSessionAlive: true }
         );
         return;
       }
@@ -1529,13 +1895,6 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
       // ==========================================
       // 5. ENGINE LOKAL TIARA (Fallback Cerdas Ketika Offline / Tanpa API AI)
       // ==========================================
-      const hasDemonstrativeReference =
-        /\b(tersebut|tadi|barusan|notulen ini|rapat ini|notulen itu|rapat itu|yang tadi)\b/i.test(
-          lower
-        );
-      const isInNotulenFollowup =
-        dialogStageRef.current === "awaiting_notulen_followup";
-
       if (activeNotulen) {
         // 2a. Tanya inti, pokok pikiran, ringkasan, atau apa yang dibahas
         if (
@@ -1683,74 +2042,6 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
           return;
         }
       }
-
-      // 3. PENCARIAN & NAVIGASI NOTULEN VIA SUARA (Tanggal / Bulan / Topik + Disambiguasi >1)
-      const isAskingNotulenSearch =
-        ((!hasDemonstrativeReference && !isInNotulenFollowup) ||
-          /\b(cari|carikan|notulen lain|lainnya)\b/i.test(lower)) &&
-        ((/\b(carikan|cari|bukakan|buka|tampilkan|munculkan|lihat)\b/i.test(
-          lower
-        ) &&
-          /\b(notulen|notulensi|hasil rapat|transkrip|rapat)\b/i.test(lower)) ||
-          (/\b(notulen|notulensi)\b/i.test(lower) &&
-            /\b(tanggal|tgl|bulan|januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember|terbaru|terakhir|kemarin|hari ini)\b/i.test(
-              lower
-            )));
-
-      if (isAskingNotulenSearch) {
-        const searchRes = searchNotulenSmart(
-          cmd,
-          notulenRef.current,
-          TODAY_ISO
-        );
-
-        if (searchRes.matches.length === 0) {
-          speakWithTiara(
-            `Mohon maaf Pak Dirut, saya belum menemukan notulen yang cocok dengan ${searchRes.queryDescription}. Silakan sebutkan kata kunci atau bulan lainnya.`,
-            { nextStage: "active_session" }
-          );
-          return;
-        }
-
-        if (searchRes.matches.length === 1) {
-          const single = searchRes.matches[0];
-          openAndFocusNotulen(single);
-          if (searchRes.wantsImmediateRead) {
-            const script = buildNotulenReadoutText(
-              single,
-              tugasRef.current,
-              "lengkap"
-            );
-            speakWithTiara(script, { nextStage: "awaiting_notulen_followup" });
-          } else {
-            speakWithTiara(
-              `Baik Pak Dirut, ini notulen ${single.judul} tanggal ${single.tanggal}. Apakah ingin langsung saya bacakan ringkasan beserta poin-poin keputusannya?`,
-              { nextStage: "awaiting_notulen_followup" }
-            );
-          }
-          return;
-        }
-
-        // Lebih dari 1 notulen berkaitan -> Munculkan pop-up tengah & tanyakan konfirmasi kepada Dirut!
-        const topCandidates = searchRes.matches.slice(0, 4);
-        setCandidateNotulens(topCandidates);
-        candidateNotulensRef.current = topCandidates;
-        setCandidateQueryLabel(searchRes.queryDescription);
-        setCandidateMatchReasons(searchRes.matchReasons);
-        pendingAutoReadRef.current = searchRes.wantsImmediateRead;
-
-        const ordLabels = ["Pertama", "Kedua", "Ketiga", "Keempat"];
-        const listSpoken = topCandidates
-          .map((c, idx) => `${ordLabels[idx]}, ${c.judul} (${c.tanggal})`)
-          .join("; ");
-
-        speakWithTiara(
-          `Pak Dirut, ada ${topCandidates.length} notulen yang berkaitan: ${listSpoken}. Silakan pilih pada layar atau sebutkan nomornya.`,
-          { nextStage: "awaiting_notulen_choice" }
-        );
-        return;
-      }
-
 
       // 5. TANYA JADWAL / AGENDA (Hari ini, Besok, Lusa, Hari Tertentu misal Sabtu/Jumat, atau Pekan Ini)
       if (
@@ -2161,36 +2452,7 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
     setCreateNotulenModalOpen(true);
   }, []);
 
-  // CRUD Agenda
-  const addAgenda = useCallback((item: Omit<AgendaItem, "id">): AgendaItem => {
-    const newItem: AgendaItem = {
-      ...item,
-      id: Date.now(),
-      mulai: normalizeTimeDot(item.mulai),
-      selesai: normalizeTimeDot(item.selesai),
-    };
-    setAgendas((prev) =>
-      [...prev, newItem].sort((a, b) =>
-        `${a.tanggal}-${a.mulai}`.localeCompare(`${b.tanggal}-${b.mulai}`)
-      )
-    );
-    setWaLogs((prev) => [
-      {
-        id: Date.now() + 1,
-        waktu: newItem.mulai,
-        labelDashboard: `Pengingat: ${newItem.judul.slice(0, 18)}`,
-        tujuan: "Dirut & Sekretariat",
-        isi: `Pengingat otomatis terjadwal untuk agenda "${newItem.judul}" (${newItem.mulai} – ${newItem.selesai}) di ${newItem.lokasi}.`,
-        status: "Terjadwal",
-      },
-      ...prev,
-    ]);
-    toast.success(
-      `Agenda "${newItem.judul}" berhasil disimpan & pengingat WA dijadwalkan.`
-    );
-    return newItem;
-  }, []);
-
+  // CRUD Agenda (Update & Status)
   const updateAgenda = useCallback((id: number, patch: Partial<AgendaItem>) => {
     setAgendas((prev) =>
       prev.map((a) =>
@@ -2207,11 +2469,6 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
       )
     );
     toast.success("Agenda diperbarui.");
-  }, []);
-
-  const deleteAgenda = useCallback((id: number) => {
-    setAgendas((prev) => prev.filter((a) => a.id !== id));
-    toast("Agenda dihapus.");
   }, []);
 
   const toggleAgendaDone = useCallback((id: number) => {
@@ -2942,6 +3199,15 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
     reminder,
     voiceDraft,
     setVoiceDraft,
+    pendingDelete,
+    setPendingDelete,
+    confirmVoiceAgenda,
+    cancelVoiceAgenda,
+    deleteNotulen,
+    requestDeleteAgenda,
+    requestDeleteNotulen,
+    confirmPendingDelete,
+    cancelPendingDelete,
     uploadModalOpen,
     setUploadModalOpen,
     createNotulenModalOpen,

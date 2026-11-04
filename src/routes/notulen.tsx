@@ -159,6 +159,7 @@ function NotulenPage() {
     removePhotoFromNotulen,
     approveAndLockNotulen,
     deleteNotulenAudio,
+    requestDeleteNotulen,
     sendNotulenSummaryToWa,
     toggleTugas,
   } = usePdamStore();
@@ -549,6 +550,22 @@ function NotulenPage() {
                     <Lock size={14} /> Kunci & Bagikan
                   </button>
                 )}
+                <button
+                  type="button"
+                  className="pill"
+                  style={{
+                    padding: "8px 14px",
+                    fontSize: 13,
+                    color: "#EF4444",
+                    borderColor: "rgba(239, 68, 68, 0.4)",
+                    background: "rgba(239, 68, 68, 0.08)",
+                    fontWeight: 600,
+                  }}
+                  onClick={() => requestDeleteNotulen(activeItem.id)}
+                  title="Hapus notulen permanen"
+                >
+                  <Trash2 size={14} /> Hapus Notulen
+                </button>
               </div>
             </div>
 

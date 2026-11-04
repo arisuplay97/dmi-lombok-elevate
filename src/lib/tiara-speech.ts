@@ -1436,6 +1436,181 @@ export function extractAgendaFromSpeech(
   };
 }
 
+export interface AgendaDraftUpdateResult {
+  updated: VoiceAgendaDraft;
+  fieldChanged: "jam" | "lokasi" | "judul" | "tanggal" | "peserta" | "jenis" | "multi";
+  speechResponse: string;
+}
+
+/**
+ * Memperbarui draf agenda yang sedang terbuka di popup secara langsung dari perintah suara,
+ * tanpa menutup modal konfirmasi.
+ * Contoh instruksi:
+ * - "Ganti jamnya jadi jam 10" / "Waktunya jam 14.00 sampai 16.00"
+ * - "Ubah lokasinya di Aula Cabang Praya" / "Pindah ke Ruang Rapat Utama"
+ * - "Ganti judulnya jadi Evaluasi Pompa Distribusi"
+ * - "Ganti tanggalnya jadi besok" / "Ubah ke hari Jumat"
+ * - "Pesertanya 10 orang"
+ * - "Ubah jenisnya jadi kunjungan"
+ */
+export function updateAgendaDraftFromSpeech(
+  currentDraft: VoiceAgendaDraft,
+  rawSpeech: string,
+  baseDateIso = "2026-11-04"
+): AgendaDraftUpdateResult | null {
+  const text = rawSpeech.trim();
+  const lower = text.toLowerCase();
+  const nextDraft: VoiceAgendaDraft = { ...currentDraft };
+  const changedFields: string[] = [];
+  const responses: string[] = [];
+
+  // 1. EDIT JAM / WAKTU
+  const timeIntent = /\b(jam|pukul|waktu|waktunya|mulai|sampai|hingga)\b/i.test(lower);
+  const timeMatch = lower.match(
+    /(?:(?:ganti|ubah|atur|jadikan|pindahkan)?\s*(?:jam|pukul|waktu(?:nya)?|mulai)?\s*(?:jadi|ke|menjadi)?\s*)?(?:jam|pukul)?\s*(\d{1,2})(?:[.:](\d{2}))?\s*(pagi|siang|sore|malam)?(?:\s*(?:sampai|hingga|-)\s*(?:jam|pukul)?\s*(\d{1,2})(?:[.:](\d{2}))?)?/i
+  );
+
+  if (timeIntent && timeMatch && timeMatch[1]) {
+    let h1 = Number.parseInt(timeMatch[1], 10);
+    const m1 = timeMatch[2] ? Number.parseInt(timeMatch[2], 10) : 0;
+    const meridiem = timeMatch[3];
+    if ((meridiem === "siang" || meridiem === "sore") && h1 < 12) h1 += 12;
+    if (meridiem === "malam" && h1 < 12) h1 += 12;
+    if (h1 >= 0 && h1 <= 23 && m1 >= 0 && m1 <= 59) {
+      nextDraft.mulai = minutesToTimeDot(h1 * 60 + m1);
+      if (timeMatch[4]) {
+        let h2 = Number.parseInt(timeMatch[4], 10);
+        const m2 = timeMatch[5] ? Number.parseInt(timeMatch[5], 10) : 0;
+        if (h2 < h1 && h2 < 12) h2 += 12;
+        nextDraft.selesai = minutesToTimeDot(h2 * 60 + m2);
+      } else {
+        nextDraft.selesai = minutesToTimeDot(h1 * 60 + m1 + 60);
+      }
+      changedFields.push("jam");
+      responses.push(`Waktu agenda diubah menjadi pukul ${nextDraft.mulai} sampai ${nextDraft.selesai}.`);
+    }
+  }
+
+  // 2. EDIT LOKASI
+  const locMatch = text.match(
+    /(?:(?:ganti|ubah|atur|pindah(?:kan)?|jadikan)?\s*(?:lokasi(?:nya)?|tempat(?:nya)?)\s*(?:jadi|ke|di|menjadi)?\s*|(?:^|\s)pindah(?:kan)?\s+ke\s+)(.+)$/i
+  );
+  if (locMatch && locMatch[1].trim().length >= 3) {
+    const rawLoc = locMatch[1].trim().replace(/[.,!?]+$/, "");
+    if (!/\b(jam|pukul|besok|lusa|jumat|senin)\b/i.test(rawLoc)) {
+      const cleanLoc = rawLoc.replace(/\b\w/g, (c) => c.toUpperCase());
+      nextDraft.lokasi = cleanLoc;
+      changedFields.push("lokasi");
+      responses.push(`Lokasi telah diubah ke ${cleanLoc}.`);
+    }
+  } else {
+    const directLoc = text.match(/\b(?:ubah|ganti)\s+di\s+([A-Za-z0-9\s]+?)(?=\s+(?:jam|pukul|besok|lusa)|$)/i);
+    if (directLoc && directLoc[1].trim().length >= 3) {
+      const cleanLoc = directLoc[1].trim().replace(/\b\w/g, (c) => c.toUpperCase());
+      nextDraft.lokasi = cleanLoc;
+      changedFields.push("lokasi");
+      responses.push(`Lokasi telah diubah ke ${cleanLoc}.`);
+    }
+  }
+
+  // 3. EDIT JUDUL
+  const titleMatch = text.match(
+    /(?:ganti|ubah|jadikan)?\s*(?:judul(?:nya)?|nama(?:nya)?|acara(?:nya)?)\s*(?:jadi|ke|menjadi)?\s*(.+)$/i
+  );
+  if (titleMatch && titleMatch[1].trim().length >= 3) {
+    const rawTitle = titleMatch[1].trim().replace(/[.,!?]+$/, "");
+    if (!/\b(jam|pukul|besok|lusa|jumat|lokasi)\b/i.test(rawTitle)) {
+      const cleanTitle = rawTitle.charAt(0).toUpperCase() + rawTitle.slice(1);
+      nextDraft.judul = cleanTitle;
+      changedFields.push("judul");
+      responses.push(`Judul agenda diubah menjadi "${cleanTitle}".`);
+    }
+  }
+
+  // 4. EDIT TANGGAL / HARI
+  if (/\b(tanggal|tgl|hari|besok|lusa|kemarin|senin|selasa|rabu|kamis|jumat|jum'at|sabtu|minggu)\b/i.test(lower)) {
+    let newDate = "";
+    if (/\blusa\b/i.test(lower)) {
+      newDate = addDaysIso(baseDateIso, 2);
+    } else if (/\bbesok\b/i.test(lower)) {
+      newDate = addDaysIso(baseDateIso, 1);
+    } else if (/\bhari ini\b/i.test(lower)) {
+      newDate = baseDateIso;
+    } else {
+      const dayMap: Record<string, number> = {
+        minggu: 0,
+        senin: 1,
+        selasa: 2,
+        rabu: 3,
+        kamis: 4,
+        jumat: 5,
+        "jum'at": 5,
+        sabtu: 6,
+      };
+      const [by, bm, bd] = baseDateIso.split("-").map(Number);
+      const baseDow = new Date(by, bm - 1, bd).getDay();
+      for (const [dayName, targetDow] of Object.entries(dayMap)) {
+        if (new RegExp(`\\b${dayName}\\b`, "i").test(lower)) {
+          let diff = targetDow - baseDow;
+          if (diff <= 0) diff += 7;
+          newDate = addDaysIso(baseDateIso, diff);
+          break;
+        }
+      }
+    }
+    if (newDate) {
+      nextDraft.tanggal = newDate;
+      changedFields.push("tanggal");
+      responses.push(`Tanggal agenda diubah menjadi ${formatIsoToReadable(newDate)}.`);
+    }
+  }
+
+  // 5. EDIT PESERTA
+  const pesMatch =
+    lower.match(/(?:peserta(?:nya)?|orang)\s*(?:jadi|ada)?\s*(\d{1,3})/i) ||
+    lower.match(/(\d{1,3})\s*(?:orang|peserta)\b/i);
+  if (pesMatch && pesMatch[1]) {
+    const num = Number.parseInt(pesMatch[1], 10);
+    if (num > 0 && num <= 500) {
+      nextDraft.peserta = num;
+      changedFields.push("peserta");
+      responses.push(`Jumlah peserta diubah menjadi ${num} orang.`);
+    }
+  }
+
+  // 6. EDIT JENIS
+  if (/\b(kunjungan|inspeksi|lapangan|tinjau)\b/i.test(lower)) {
+    nextDraft.jenis = "kunjungan";
+    changedFields.push("jenis");
+    responses.push("Jenis agenda diubah menjadi kunjungan lapangan.");
+  } else if (
+    /\b(rapat|pertemuan|koordinasi|evaluasi)\b/i.test(lower) &&
+    /\b(jenis|kategori)\b/i.test(lower)
+  ) {
+    nextDraft.jenis = "rapat";
+    changedFields.push("jenis");
+    responses.push("Jenis agenda diubah menjadi rapat.");
+  }
+
+  if (changedFields.length === 0) return null;
+
+  nextDraft.catatan = `Draf diperbarui via suara: "${text}"`;
+
+  const finalSpeech =
+    responses.join(" ") +
+    ' Silakan periksa di layar, atau ucapkan "Simpan" jika sudah sesuai.';
+  const fieldCategory =
+    changedFields.length === 1
+      ? (changedFields[0] as AgendaDraftUpdateResult["fieldChanged"])
+      : "multi";
+
+  return {
+    updated: nextDraft,
+    fieldChanged: fieldCategory,
+    speechResponse: `Baik Pak Dirut. ${finalSpeech}`,
+  };
+}
+
 // Type helper untuk Browser SpeechRecognition
 export interface BrowserSpeechRecognition extends EventTarget {
   lang: string;
