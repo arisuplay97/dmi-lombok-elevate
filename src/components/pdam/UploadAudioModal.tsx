@@ -8,6 +8,7 @@ export function UploadAudioModal() {
 
   const [judul, setJudul] = useState("");
   const [fileName, setFileName] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [durasiMenit, setDurasiMenit] = useState(60);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -16,6 +17,7 @@ export function UploadAudioModal() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setSelectedFile(file);
     setFileName(file.name);
     if (!judul.trim()) {
       const cleanName = file.name
@@ -39,9 +41,11 @@ export function UploadAudioModal() {
       judul: finalJudul,
       fileName: finalFile,
       durasiMenit: Number(durasiMenit) || 60,
+      file: selectedFile || undefined,
     });
     setJudul("");
     setFileName("");
+    setSelectedFile(null);
     setDurasiMenit(60);
     setUploadModalOpen(false);
   };

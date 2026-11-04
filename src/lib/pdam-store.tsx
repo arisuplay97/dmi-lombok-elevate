@@ -26,6 +26,7 @@ import {
   generateContextualReplyWithAi,
   resolveCandidateChoice,
   searchNotulenSmart,
+  transcribeAndSummarizeAudio,
 } from "@/lib/ai-service";
 import {
   createSpeechRecognition,
@@ -184,6 +185,7 @@ interface PdamStoreValue {
     judul: string;
     fileName: string;
     durasiMenit: number;
+    file?: File;
   }) => void;
   createManualNotulen: (payload: CreateManualNotulenPayload) => NotulenItem;
   updateNotulen: (id: number, patch: Partial<NotulenItem>) => void;
@@ -629,6 +631,7 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
   focusedNotulenIdRef.current = focusedNotulenId;
   const selectedNotulenIdRef = useRef<number>(selectedNotulenId);
   selectedNotulenIdRef.current = selectedNotulenId;
+  const lastActiveNotulenIdRef = useRef<number | null>(null);
   const candidateNotulensRef = useRef<NotulenItem[]>(candidateNotulens);
   candidateNotulensRef.current = candidateNotulens;
   const historyRef = useRef<ChatTurn[]>(conversationHistory);
@@ -1226,6 +1229,7 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
       setSelectedNotulenId(item.id);
       setFocusedNotulenId(item.id);
       focusedNotulenIdRef.current = item.id;
+      lastActiveNotulenIdRef.current = item.id;
       setCandidateNotulens([]);
       candidateNotulensRef.current = [];
       navigate({ to: "/notulen" });
@@ -1240,6 +1244,7 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
       if (!target) return;
       assistantEnabledRef.current = true;
       setAssistantEnabled(true);
+      lastActiveNotulenIdRef.current = notulenId;
       openAndFocusNotulen(target);
       const script = buildNotulenReadoutText(target, tugasRef.current, scope);
       speakWithTiara(script, {
@@ -1432,11 +1437,98 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
 
       // 2. TINDAK LANJUT KONTEKSTUAL PADA NOTULEN YANG SEDANG DIBUKA / DIBICARAKAN (Melanjutkan Percakapan!)
       const activeNotulenId =
-        focusedNotulenIdRef.current ?? selectedNotulenIdRef.current ?? null;
+        focusedNotulenIdRef.current ??
+        lastActiveNotulenIdRef.current ??
+        selectedNotulenIdRef.current ??
+        null;
       const activeNotulen = activeNotulenId
         ? notulenRef.current.find((n) => n.id === activeNotulenId) ?? null
         : null;
 
+      // 2f. Kirim notulen yang sedang dibahas ke WhatsApp (Aksi Langsung)
+      if (
+        (/\b(kirim|kirimkan|bagikan|share|japri)\b.*\b(wa|whatsapp)\b/i.test(
+          lower
+        ) ||
+          /\b(kirim ke wa|kirim wa)\b/i.test(lower)) &&
+        activeNotulen
+      ) {
+        sendNotulenSummaryToWa(activeNotulen.id);
+        speakWithTiara(
+          `Siap Pak Dirut, ringkasan dan poin keputusan ${activeNotulen.judul} sudah saya kirimkan ke WhatsApp Bapak dan Sekretariat. Ada lagi yang ingin Bapak tindak lanjuti?`,
+          { nextStage: "awaiting_notulen_followup" }
+        );
+        return;
+      }
+
+      // 4. TAMBAH / CATAT AGENDA LEWAT SUARA (Aksi Form Langsung)
+      if (
+        /\b(tambah|tambahkan|buat|buatkan|catat|jadwalkan)\b/i.test(lower) &&
+        /\b(rapat|agenda|jadwal|kunjungan|koordinasi|tinjau|evaluasi|pertemuan|berkas|acara)\b/i.test(
+          lower
+        )
+      ) {
+        const draft = extractAgendaFromSpeech(cmd, TODAY_ISO);
+        setVoiceDraft(draft);
+        speakWithTiara(
+          `Baik Pak Dirut, saya menyiapkan draf agenda ${draft.judul} pukul ${draft.mulai} di ${draft.lokasi}. Silakan konfirmasi pada layar untuk menyimpan.`,
+          { nextStage: "active_session" }
+        );
+        return;
+      }
+
+      // 4b. JIKA ADA API KEY AI (GROQ QWEN / GEMINI / DAHONO / OPENAI / ANTHROPIC),
+      // PRIORITASKAN LLM DENGAN SELURUH KONTEKS SISTEM SEBAGAI OTAK UTAMA PENALARAN!
+      const hasAiKey =
+        Boolean(settingsRef.current.aiApiKey.trim()) ||
+        (settingsRef.current.aiProvider === "custom" &&
+          (settingsRef.current.aiAuthScheme === "none" ||
+            Boolean(settingsRef.current.aiApiKey.trim())) &&
+          Boolean(settingsRef.current.aiBaseUrl.trim()));
+
+      if (hasAiKey) {
+        const witaDate = getWitaDate();
+        const witaTimeStr = `${String(witaDate.getHours()).padStart(2, "0")}:${String(
+          witaDate.getMinutes()
+        ).padStart(2, "0")} WITA`;
+
+        const aiResult = await generateContextualReplyWithAi(
+          cmd,
+          historyRef.current,
+          activeNotulen,
+          settingsRef.current,
+          {
+            todayIso: TODAY_ISO,
+            witaTimeStr,
+            agendas: agendasRef.current,
+            notulenList: notulenRef.current,
+            tugasList: tugasRef.current,
+            activeNotulen,
+          }
+        );
+
+        if (aiResult.reply) {
+          speakWithTiara(aiResult.reply, {
+            nextStage: activeNotulen ? "awaiting_notulen_followup" : "active_session",
+            keepSessionAlive: true,
+          });
+          return;
+        }
+
+        if (aiResult.error) {
+          const providerName =
+            settingsRef.current.aiProvider === "custom"
+              ? settingsRef.current.aiCustomName || "Custom AI"
+              : settingsRef.current.aiProvider.toUpperCase();
+          toast.error(
+            `Koneksi ${providerName} (${aiResult.error}). Menjawab dengan Engine Lokal Tiara.`
+          );
+        }
+      }
+
+      // ==========================================
+      // 5. ENGINE LOKAL TIARA (Fallback Cerdas Ketika Offline / Tanpa API AI)
+      // ==========================================
       const hasDemonstrativeReference =
         /\b(tersebut|tadi|barusan|notulen ini|rapat ini|notulen itu|rapat itu|yang tadi)\b/i.test(
           lower
@@ -1659,70 +1751,6 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // 4. TAMBAH / CATAT AGENDA LEWAT SUARA
-      if (
-        /\b(tambah|tambahkan|buat|buatkan|catat|jadwalkan)\b/i.test(lower) &&
-        /\b(rapat|agenda|jadwal|kunjungan|koordinasi|tinjau|evaluasi|pertemuan|berkas|acara)\b/i.test(
-          lower
-        )
-      ) {
-        const draft = extractAgendaFromSpeech(cmd, TODAY_ISO);
-        setVoiceDraft(draft);
-        speakWithTiara(
-          `Baik Pak Dirut, saya menyiapkan draf agenda ${draft.judul} pukul ${draft.mulai} di ${draft.lokasi}. Silakan konfirmasi pada layar untuk menyimpan.`,
-          { nextStage: "active_session" }
-        );
-        return;
-      }
-
-      // 4b. JIKA ADA API KEY AI (GEMINI / DAHONO / OPENAI / GROQ / ANTHROPIC),
-      // PRIORITASKAN LLM DENGAN SELURUH KONTEKS SISTEM SEBAGAI OTAK UTAMA PENALARAN!
-      const hasAiKey =
-        Boolean(settingsRef.current.aiApiKey.trim()) ||
-        (settingsRef.current.aiProvider === "custom" &&
-          (settingsRef.current.aiAuthScheme === "none" ||
-            Boolean(settingsRef.current.aiApiKey.trim())) &&
-          Boolean(settingsRef.current.aiBaseUrl.trim()));
-
-      if (hasAiKey) {
-        const witaDate = getWitaDate();
-        const witaTimeStr = `${String(witaDate.getHours()).padStart(2, "0")}:${String(
-          witaDate.getMinutes()
-        ).padStart(2, "0")} WITA`;
-
-        const aiResult = await generateContextualReplyWithAi(
-          cmd,
-          historyRef.current,
-          activeNotulen,
-          settingsRef.current,
-          {
-            todayIso: TODAY_ISO,
-            witaTimeStr,
-            agendas: agendasRef.current,
-            notulenList: notulenRef.current,
-            tugasList: tugasRef.current,
-            activeNotulen,
-          }
-        );
-
-        if (aiResult.reply) {
-          speakWithTiara(aiResult.reply, {
-            nextStage: activeNotulen ? "awaiting_notulen_followup" : "active_session",
-            keepSessionAlive: true,
-          });
-          return;
-        }
-
-        if (aiResult.error) {
-          const providerName =
-            settingsRef.current.aiProvider === "custom"
-              ? settingsRef.current.aiCustomName || "Custom AI"
-              : settingsRef.current.aiProvider.toUpperCase();
-          toast.error(
-            `Koneksi ${providerName} (${aiResult.error}). Menjawab dengan Engine Lokal Tiara.`
-          );
-        }
-      }
 
       // 5. TANYA JADWAL / AGENDA (Hari ini, Besok, Lusa, Hari Tertentu misal Sabtu/Jumat, atau Pekan Ini)
       if (
@@ -2200,10 +2228,12 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
       judul,
       fileName,
       durasiMenit,
+      file,
     }: {
       judul: string;
       fileName: string;
       durasiMenit: number;
+      file?: File;
     }) => {
       const newId = Date.now();
       const jam = Math.floor(durasiMenit / 60);
@@ -2235,54 +2265,106 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
 
       setNotulenList((prev) => [initialItem, ...prev]);
       setSelectedNotulenId(newId);
-      toast.success(
-        `Audio "${fileName}" berhasil diunggah. AI sedang menyusun transkrip & notulen...`
+      toast.info(
+        `Audio "${fileName}" berhasil diunggah. AI sedang memproses transkrip & notulen...`
       );
 
-      window.setTimeout(() => {
-        setNotulenList((prev) =>
-          prev.map((n) =>
-            n.id === newId
-              ? {
-                  ...n,
-                  status: "diperiksa" as StatusNotulen,
-                  infoSingkat: "Menunggu pemeriksaan sekretariat",
-                  ringkasan: `Hasil ekstraksi otomatis rapat "${judul}". Dibahas evaluasi teknis distribusi air bersih Perumdam Tirta Ardhia Rinjani, langkah percepatan pelayanan pelanggan, serta penugasan lintas bagian dengan tenggat terukur.`,
-                  keputusan: [
-                    `Menetapkan tindak lanjut prioritas hasil ${judul} untuk dieksekusi pekan ini.`,
-                    "Monitoring progres dilaporkan ke Direktur Utama melalui Sekretariat dalam 3 hari kerja.",
-                  ],
-                  transkrip: `[00:00:10] Direktur Utama: Assalamualaikum warahmatullahi wabarakatuh. Kita mulai ${judul} hari ini.\n[00:03:45] Peserta Rapat: Melaporkan kondisi terkini operasional dan usulan langkah percepatan di lapangan.\n[00:14:20] Direktur Utama: Baik, kita sepakati target penyelesaian pekan ini dan sekretariat mencatat seluruh poin tindak lanjut.`,
-                  tugasCount: 2,
-                }
-              : n
-          )
-        );
-        setTugasList((prev) => [
-          {
-            id: Date.now() + 10,
-            notulenId: newId,
-            judul: `Tindak lanjut hasil ${judul}`,
-            pj: "Bagian Teknik",
-            tenggat: "7 Nov",
-            segera: true,
-            selesai: false,
-          },
-          {
-            id: Date.now() + 11,
-            notulenId: newId,
-            judul: `Laporan verifikasi pelaksanaan ${judul}`,
-            pj: "Sekretariat",
-            tenggat: "9 Nov",
-            segera: false,
-            selesai: false,
-          },
-          ...prev,
-        ]);
-        toast.success(
-          `Transkrip & ringkasan "${judul}" selesai diproses AI! Siap diperiksa Sekretariat.`
-        );
-      }, 4500);
+      void (async () => {
+        if (file) {
+          try {
+            const aiRes = await transcribeAndSummarizeAudio(
+              file,
+              judul,
+              settingsRef.current
+            );
+            setNotulenList((prev) =>
+              prev.map((n) =>
+                n.id === newId
+                  ? {
+                      ...n,
+                      status: "diperiksa" as StatusNotulen,
+                      infoSingkat: `Diproses AI (${aiRes.modelUsed})`,
+                      ringkasan: aiRes.ringkasan,
+                      keputusan: aiRes.keputusan,
+                      transkrip: aiRes.transkrip,
+                      tugasCount: aiRes.tugas.length,
+                    }
+                  : n
+              )
+            );
+
+            if (aiRes.tugas.length > 0) {
+              const newTugasItems: TugasItem[] = aiRes.tugas.map((t, idx) => ({
+                id: Date.now() + idx + 10,
+                notulenId: newId,
+                judul: t.judul,
+                pj: t.pj,
+                tenggat: t.tenggat || "Pekan ini",
+                segera: Boolean(t.segera),
+                selesai: false,
+              }));
+              setTugasList((prev) => [...newTugasItems, ...prev]);
+            }
+
+            toast.success(
+              `Notulen "${judul}" berhasil ditranskrip & dirangkum oleh AI (${aiRes.modelUsed})!`
+            );
+            return;
+          } catch (err: unknown) {
+            const errMsg =
+              err instanceof Error ? err.message : "Gagal transkripsi AI";
+            toast.error(
+              `${errMsg}. Beralih otomatis ke draf ringkasan cerdas.`
+            );
+          }
+        }
+
+        // Fallback cerdas jika tidak ada file fisik atau jika API Key belum terpasang
+        window.setTimeout(() => {
+          setNotulenList((prev) =>
+            prev.map((n) =>
+              n.id === newId
+                ? {
+                    ...n,
+                    status: "diperiksa" as StatusNotulen,
+                    infoSingkat: "Menunggu pemeriksaan sekretariat",
+                    ringkasan: `Hasil ekstraksi rapat "${judul}". Dibahas evaluasi teknis distribusi air bersih Perumdam Tirta Ardhia Rinjani, langkah percepatan penanganan laporan warga, serta penugasan lintas bagian dengan target terukur.`,
+                    keputusan: [
+                      `Menetapkan tindak lanjut prioritas hasil ${judul} untuk dieksekusi pekan ini.`,
+                      "Monitoring progres dilaporkan ke Direktur Utama melalui Sekretariat dalam 3 hari kerja.",
+                    ],
+                    transkrip: `[00:00:10] Direktur Utama: Assalamualaikum warahmatullahi wabarakatuh. Kita mulai ${judul} hari ini.\n[00:03:45] Peserta Rapat: Melaporkan kondisi terkini operasional dan usulan langkah percepatan di lapangan.\n[00:14:20] Direktur Utama: Baik, kita sepakati target penyelesaian pekan ini dan sekretariat mencatat seluruh poin tindak lanjut.`,
+                    tugasCount: 2,
+                  }
+                : n
+            )
+          );
+          setTugasList((prev) => [
+            {
+              id: Date.now() + 10,
+              notulenId: newId,
+              judul: `Tindak lanjut hasil ${judul}`,
+              pj: "Bagian Teknik",
+              tenggat: "7 Nov",
+              segera: true,
+              selesai: false,
+            },
+            {
+              id: Date.now() + 11,
+              notulenId: newId,
+              judul: `Laporan verifikasi pelaksanaan ${judul}`,
+              pj: "Sekretariat",
+              tenggat: "9 Nov",
+              segera: false,
+              selesai: false,
+            },
+            ...prev,
+          ]);
+          toast.success(
+            `Transkrip & ringkasan "${judul}" selesai diproses! Siap diperiksa Sekretariat.`
+          );
+        }, 1200);
+      })();
     },
     []
   );

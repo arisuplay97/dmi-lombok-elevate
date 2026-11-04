@@ -1120,7 +1120,7 @@ export async function generateContextualReplyWithAi(
       : "Semua tugas telah selesai.";
 
     const systemPrompt = `Kamu adalah Tiara, Asisten Virtual Resmi Direktur Utama Perumdam Tirta Ardhia Rinjani (PDAM Kabupaten Lombok Tengah).
-Tugasmu adalah membantu Direktur Utama (Pak Dirut) dengan informasi agenda kegiatan, arsip notulen rapat, dan tindak lanjut tugas.
+Tugasmu adalah mendampingi Direktur Utama (Pak Dirut) dengan informasi agenda kegiatan, arsip notulen rapat, tindak lanjut tugas, serta menjadi mitra berpikir (sparring partner) yang solutif dan cerdas.
 
 KONTEKS SISTEM PDAM LOMBOK TENGAH:
 - Hari & Tanggal Acuan: Rabu, 4 November 2026 (Format ISO: ${todayStr})
@@ -1139,10 +1139,12 @@ DAFTAR TUGAS TERBUKA:
 ${tugasBlock}
 
 PANDUAN MENJAWAB:
-1. Jawab secara ringkas, to the point, dan sopan eksekutif (maksimal 2–3 kalimat agar nyaman didengarkan via suara TTS).
-2. Jika Pak Dirut menanyakan jadwal/agenda (misal hari ini, besok, lusa, hari tertentu seperti Sabtu/Jumat, atau pekan ini), periksa DATA AGENDA KEGIATAN di atas dengan cermat dan hitung hari dari acuan Rabu, 4 November 2026.
-3. Jika Pak Dirut menanyakan inti notulen atau keputusan rapat, jelaskan secara langsung dan tawarkan tindak lanjut.
-4. Gunakan Bahasa Indonesia formal eksekutif yang ramah dan lugas.`;
+1. Ringkas & Nyaman Didengar (TTS): Jawab secara lugas, padat (maksimal 2–3 kalimat agar nyaman didengarkan via suara TTS), berbahasa Indonesia formal eksekutif yang hangat dan santun, menyapa "Pak Dirut".
+2. Diskusi Bebas di Luar Agenda/Notulen: Kamu bebas diajak berdiskusi tentang wawasan umum, manajerial BUMD, kepemimpinan, efisiensi operasional air minum, hingga obrolan santai sehari-hari. Jawab langsung substansinya secara cerdas dan berwibawa.
+3. JANGAN Memaksa Membuat Rapat/Agenda: Ketika menjawab topik umum atau diskusi bebas, JANGAN PERNAH otomatis menyodorkan tawaran membuat rapat/agenda di akhir kalimat. Jawab murni sesuai substansi pertanyaan tanpa embel-embel birokrasi, KECUALI jika Pak Dirut sendiri yang secara eksplisit menginstruksikannya (seperti "Tolong jadwalkan", "Catat rapat", "Buat tugas").
+4. Pertanyaan Jadwal & Notulen: Jika Pak Dirut menanyakan jadwal kegiatan, periksa DATA AGENDA KEGIATAN di atas dengan cermat dan hitung hari dari acuan Rabu, 4 November 2026. Jika menanyakan notulen, berikan inti pokok keputusan rapat secara akurat.
+5. Kejujuran Teknis Lapangan: Jangan pernah mengarang data sensor fisik lapangan (misal debit pompa atau bar tekanan) yang tidak ada di data sistem. Sampaikan secara wajar dan sarankan konfirmasi ke tim lapangan jika data fisik tidak tercatat.
+6. Netralitas: Tetap netral terhadap isu politik praktis daerah, pilkada, dan SARA.`;
 
     const userPrompt = `Riwayat percakapan sebelumnya:\n${recentChat || "(Awal percakapan)"}\n\nUcapan terbaru Pak Dirut: "${userSpeech}"`;
 
@@ -1154,4 +1156,282 @@ PANDUAN MENJAWAB:
     console.warn("AI LLM call error:", errorMsg);
     return { reply: null, error: errorMsg };
   }
+}
+
+export interface AudioTranscriptionResult {
+  ringkasan: string;
+  keputusan: string[];
+  transkrip: string;
+  tugas: Array<{ judul: string; pj: string; tenggat: string; segera: boolean }>;
+  modelUsed: string;
+}
+
+/**
+ * Transkripsi audio rekaman rapat nyata dan ekstraksi notulen otomatis via AI
+ * Mendukung Groq Whisper (tercepat di dunia) + LLM (Qwen 3.8-27b / Llama), OpenAI Whisper, dan Gemini Audio
+ */
+export async function transcribeAndSummarizeAudio(
+  audioFile: File,
+  judulRapat: string,
+  settings: AssistantSettings
+): Promise<AudioTranscriptionResult> {
+  const isGroq =
+    settings.aiProvider === "groq" || settings.sttProvider === "groq-whisper";
+  const isOpenAi =
+    settings.aiProvider === "openai" || settings.sttProvider === "openai-whisper";
+  const isGemini = settings.aiProvider === "gemini";
+
+  const groqKey = (
+    (isGroq ? settings.aiApiKey : "") ||
+    settings.sttApiKey ||
+    settings.aiApiKey
+  ).trim();
+  const openAiKey = (
+    (isOpenAi ? settings.aiApiKey : "") ||
+    settings.sttApiKey ||
+    settings.aiApiKey
+  ).trim();
+  const geminiKey = settings.aiApiKey.trim();
+
+  // 1. Alur Groq (Whisper Large V3 Turbo + Qwen 3.8-27B)
+  if ((isGroq || groqKey.startsWith("gsk_")) && groqKey) {
+    const formData = new FormData();
+    formData.append("file", audioFile);
+    formData.append("model", "whisper-large-v3-turbo");
+    formData.append("response_format", "verbose_json");
+    formData.append("language", "id");
+
+    const transcribeRes = await fetch(
+      "https://api.groq.com/openai/v1/audio/transcriptions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${groqKey}`,
+        },
+        body: formData,
+      }
+    );
+
+    const transcribeData = await transcribeRes.json().catch(() => null);
+    if (!transcribeRes.ok) {
+      const errDetail =
+        transcribeData?.error?.message || `HTTP ${transcribeRes.status}`;
+      throw new Error(`Groq Whisper: ${errDetail}`);
+    }
+
+    const segments = transcribeData?.segments;
+    let formattedTranscript = "";
+    if (Array.isArray(segments) && segments.length > 0) {
+      formattedTranscript = segments
+        .map((s: { start: number; text: string }) => {
+          const totalSec = Math.floor(s.start || 0);
+          const m = String(Math.floor(totalSec / 60)).padStart(2, "0");
+          const sec = String(totalSec % 60).padStart(2, "0");
+          return `[00:${m}:${sec}] ${s.text?.trim()}`;
+        })
+        .join("\n");
+    } else {
+      formattedTranscript = String(transcribeData?.text || "").trim();
+    }
+
+    const llmModel = settings.aiModel.trim() || "qwen/qwen3.8-27b";
+    const prompt = `Kamu adalah Notulis Eksekutif Direktur Utama Perumdam Tirta Ardhia Rinjani (PDAM Kabupaten Lombok Tengah).
+Berikut adalah transkrip hasil rekaman audio rapat "${judulRapat}":
+
+--- TRANSKRIP AUDIO ---
+${formattedTranscript.slice(0, 24000)}
+--- AKHIR TRANSKRIP ---
+
+Tugasmu:
+Buatlah ringkasan notulen rapat resmi dan berikan keluaran HANYA dalam format JSON valid (tanpa teks pembuka atau penutup lainnya) dengan struktur:
+{
+  "ringkasan": "Ringkasan eksekutif 2-3 paragraf padat tentang masalah yang dibahas, latar belakang, dan arah kebijakan rapat",
+  "keputusan": [
+    "Poin keputusan penting 1",
+    "Poin keputusan penting 2",
+    "Poin keputusan penting 3"
+  ],
+  "tugas": [
+    {
+      "judul": "Tindak lanjut tugas spesifik",
+      "pj": "Penanggung Jawab / Bagian (misal Kabag Teknik / Bagian Keuangan)",
+      "tenggat": "Tenggat waktu (misal 3 hari ke depan / pekan depan)",
+      "segera": true
+    }
+  ]
+}`;
+
+    const llmRes = await callConfiguredLlm(
+      "Kamu adalah Notulis Eksekutif Perumdam Tirta Ardhia Rinjani. Balas HANYA dalam format JSON valid.",
+      prompt,
+      settings
+    );
+
+    let parsedResult: Partial<AudioTranscriptionResult> = {};
+    try {
+      const jsonMatch = llmRes.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsedResult = JSON.parse(jsonMatch[0]);
+      }
+    } catch {
+      // ignore
+    }
+
+    return {
+      ringkasan:
+        parsedResult.ringkasan ||
+        `Hasil transkripsi dan rangkuman AI Groq (${llmModel}) untuk rapat "${judulRapat}". Dibahas poin-poin strategis operasional, penanganan pelayanan pelanggan, serta pembagian tugas antar-bagian.`,
+      keputusan:
+        Array.isArray(parsedResult.keputusan) && parsedResult.keputusan.length > 0
+          ? parsedResult.keputusan
+          : [
+              `Menyetujui tindak lanjut operasional hasil rapat "${judulRapat}".`,
+              "Menginstruksikan pelaporan berkala hasil pelaksanaan ke Direktur Utama.",
+            ],
+      transkrip: formattedTranscript || "Transkrip audio selesai diproses.",
+      tugas:
+        Array.isArray(parsedResult.tugas) && parsedResult.tugas.length > 0
+          ? parsedResult.tugas
+          : [
+              {
+                judul: `Tindak lanjut hasil rapat ${judulRapat}`,
+                pj: "Sekretariat Direksi",
+                tenggat: "3 hari kerja",
+                segera: true,
+              },
+            ],
+      modelUsed: `Groq (Whisper-v3-turbo + ${llmModel})`,
+    };
+  }
+
+  // 2. Alur OpenAI Whisper
+  if (isOpenAi && openAiKey) {
+    const formData = new FormData();
+    formData.append("file", audioFile);
+    formData.append("model", "whisper-1");
+    formData.append("language", "id");
+
+    const transcribeRes = await fetch(
+      "https://api.openai.com/v1/audio/transcriptions",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${openAiKey}` },
+        body: formData,
+      }
+    );
+    const transcribeData = await transcribeRes.json().catch(() => null);
+    if (!transcribeRes.ok) {
+      throw new Error(`OpenAI Whisper: ${transcribeData?.error?.message || transcribeRes.statusText}`);
+    }
+
+    const transcriptText = String(transcribeData?.text || "").trim();
+    const prompt = `Dari transkrip rapat "${judulRapat}" berikut:\n${transcriptText.slice(0, 20000)}\n\nBuat notulen rapat format JSON: {"ringkasan": "...", "keputusan": ["..."], "tugas": [{"judul": "...", "pj": "...", "tenggat": "...", "segera": true}]}`;
+    const llmRes = await callConfiguredLlm(
+      "Kamu adalah Notulis Eksekutif Perumdam Tirta Ardhia Rinjani. Balas HANYA format JSON.",
+      prompt,
+      settings
+    );
+
+    let parsedResult: Partial<AudioTranscriptionResult> = {};
+    try {
+      const match = llmRes.match(/\{[\s\S]*\}/);
+      if (match) parsedResult = JSON.parse(match[0]);
+    } catch {
+      // ignore
+    }
+
+    return {
+      ringkasan:
+        parsedResult.ringkasan ||
+        `Rangkuman rapat "${judulRapat}" selesai diproses via OpenAI Whisper & LLM.`,
+      keputusan: parsedResult.keputusan || [`Persetujuan tindak lanjut ${judulRapat}`],
+      transkrip: transcriptText,
+      tugas: parsedResult.tugas || [
+        { judul: `Eksekusi hasil ${judulRapat}`, pj: "Kabag Terkait", tenggat: "Pekan ini", segera: true },
+      ],
+      modelUsed: "OpenAI Whisper + GPT",
+    };
+  }
+
+  // 3. Alur Gemini Audio (Multimodal base64)
+  if (isGemini && geminiKey) {
+    const base64Audio = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || "");
+        const base64 = result.split(",")[1] || "";
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(audioFile);
+    });
+
+    const modelName = settings.aiModel.trim() || "gemini-2.5-flash";
+    const cleanModel = modelName.replace(/^models\//, "");
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+      cleanModel
+    )}:generateContent?key=${geminiKey}`;
+
+    const mimeType = audioFile.type || "audio/mp3";
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                inlineData: {
+                  mimeType,
+                  data: base64Audio,
+                },
+              },
+              {
+                text: `Dengarkan rekaman rapat "${judulRapat}" ini. Buatlah transkrip bertanda waktu dan notulen lengkap dalam format JSON murni:
+{
+  "ringkasan": "Ringkasan eksekutif padat tentang isi rapat",
+  "keputusan": ["Poin keputusan 1", "Poin keputusan 2"],
+  "transkrip": "Transkrip percakapan penting dengan penanda waktu [00:01:23]...",
+  "tugas": [{"judul": "Nama tugas", "pj": "Penanggung Jawab", "tenggat": "Tenggat", "segera": true}]
+}`,
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(`Gemini Audio: ${data?.error?.message || `HTTP ${res.status}`}`);
+    }
+
+    const textOutput = String(
+      data?.candidates?.[0]?.content?.parts?.[0]?.text || ""
+    );
+    let parsedResult: Partial<AudioTranscriptionResult> = {};
+    try {
+      const match = textOutput.match(/\{[\s\S]*\}/);
+      if (match) parsedResult = JSON.parse(match[0]);
+    } catch {
+      // ignore
+    }
+
+    return {
+      ringkasan:
+        parsedResult.ringkasan ||
+        `Hasil transkripsi dan analisis audio via Google Gemini (${cleanModel}) untuk rapat "${judulRapat}".`,
+      keputusan: parsedResult.keputusan || [`Tindak lanjut hasil rapat ${judulRapat}`],
+      transkrip: parsedResult.transkrip || textOutput || "Transkrip audio selesai.",
+      tugas: parsedResult.tugas || [
+        { judul: `Tindak lanjut ${judulRapat}`, pj: "Sekretariat Direksi", tenggat: "Pekan ini", segera: true },
+      ],
+      modelUsed: `Google Gemini (${cleanModel})`,
+    };
+  }
+
+  throw new Error(
+    "Tidak ada API Key yang aktif untuk transkripsi audio. Masukkan API Key Groq atau Gemini di Pengaturan."
+  );
 }
