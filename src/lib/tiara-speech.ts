@@ -1079,13 +1079,222 @@ export function detectScheduleConflicts(
   });
 }
 
-function addDaysIso(baseIso: string, offsetDays: number): string {
+const ID_DAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+const ID_MONTHS = [
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
+];
+
+export function getDayNameFromIso(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  return ID_DAYS[dt.getDay()] || "Hari";
+}
+
+export function formatIsoToReadable(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const monthName = ID_MONTHS[m - 1] || "";
+  return `${d} ${monthName} ${y}`;
+}
+
+/**
+ * Mendapatkan objek Date dalam zona Waktu Indonesia Tengah (WITA / UTC+8).
+ * Berlaku di Lombok Tengah, NTB, Bali, dan Indonesia bagian tengah.
+ */
+export function getWitaDate(): Date {
+  try {
+    const now = new Date();
+    const witaString = now.toLocaleString("en-US", {
+      timeZone: "Asia/Makassar",
+    });
+    return new Date(witaString);
+  } catch {
+    const now = new Date();
+    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+    return new Date(utcMs + 8 * 3600000);
+  }
+}
+
+export function getWitaHours(): number {
+  return getWitaDate().getHours();
+}
+
+/**
+ * Ucapan salam dinamis berdasarkan jam Waktu Indonesia Tengah (WITA / UTC+8):
+ * - 05:00 – 10:59 : Selamat pagi
+ * - 11:00 – 14:59 : Selamat siang
+ * - 15:00 – 18:29 : Selamat sore
+ * - 18:30 – 04:59 : Selamat malam
+ */
+export function getGreetingWita(): string {
+  const wita = getWitaDate();
+  const h = wita.getHours();
+  const m = wita.getMinutes();
+
+  if (h >= 5 && h < 11) return "Selamat pagi";
+  if (h >= 11 && h < 15) return "Selamat siang";
+  if (h >= 15 && (h < 18 || (h === 18 && m < 30))) return "Selamat sore";
+  return "Selamat malam";
+}
+
+export function addDaysIso(baseIso: string, offsetDays: number): string {
   const [y, m, d] = baseIso.split("-").map(Number);
   const dt = new Date(y, m - 1, d + offsetDays);
   const yy = dt.getFullYear();
   const mm = String(dt.getMonth() + 1).padStart(2, "0");
   const dd = String(dt.getDate()).padStart(2, "0");
   return `${yy}-${mm}-${dd}`;
+}
+
+export interface ScheduleQueryResolution {
+  queryDates: string[];
+  dateLabel: string;
+  isWeekRange: boolean;
+  isSpecificDay: boolean;
+}
+
+/**
+ * Pemroses kueri tanggal & hari untuk pertanyaan jadwal kegiatan (PRD Assistant Multi-Turn)
+ * Mendukung "sabtu depan minggu ini", "hari jumat", "besok", "lusa", "pekan ini", dll.
+ */
+export function resolveScheduleQuery(
+  rawSpeech: string,
+  baseDateIso = "2026-11-04"
+): ScheduleQueryResolution {
+  const lower = rawSpeech.toLowerCase().trim();
+
+  // 1. Cek Hari Relatif Populer
+  if (/\bbesok\b/i.test(lower)) {
+    const target = addDaysIso(baseDateIso, 1);
+    const dayName = getDayNameFromIso(target);
+    const dateFormatted = formatIsoToReadable(target);
+    return {
+      queryDates: [target],
+      dateLabel: `besok (${dayName}, ${dateFormatted})`,
+      isWeekRange: false,
+      isSpecificDay: true,
+    };
+  }
+
+  if (/\blusa\b/i.test(lower)) {
+    const target = addDaysIso(baseDateIso, 2);
+    const dayName = getDayNameFromIso(target);
+    const dateFormatted = formatIsoToReadable(target);
+    return {
+      queryDates: [target],
+      dateLabel: `lusa (${dayName}, ${dateFormatted})`,
+      isWeekRange: false,
+      isSpecificDay: true,
+    };
+  }
+
+  if (/\bkemarin\b/i.test(lower)) {
+    const target = addDaysIso(baseDateIso, -1);
+    const dayName = getDayNameFromIso(target);
+    const dateFormatted = formatIsoToReadable(target);
+    return {
+      queryDates: [target],
+      dateLabel: `kemarin (${dayName}, ${dateFormatted})`,
+      isWeekRange: false,
+      isSpecificDay: true,
+    };
+  }
+
+  // 2. Cek Nama Hari dalam Seminggu
+  const DOW_MAP: Record<string, { dow: number; name: string }> = {
+    minggu: { dow: 0, name: "Minggu" },
+    senin: { dow: 1, name: "Senin" },
+    selasa: { dow: 2, name: "Selasa" },
+    rabu: { dow: 3, name: "Rabu" },
+    kamis: { dow: 4, name: "Kamis" },
+    jumat: { dow: 5, name: "Jumat" },
+    "jum'at": { dow: 5, name: "Jumat" },
+    sabtu: { dow: 6, name: "Sabtu" },
+  };
+
+  const [by, bm, bd] = baseDateIso.split("-").map(Number);
+  const baseDow = new Date(by, bm - 1, bd).getDay();
+
+  for (const [dayKey, { dow: targetDow, name: dayName }] of Object.entries(DOW_MAP)) {
+    if (new RegExp(`\\b${dayKey}\\b`, "i").test(lower)) {
+      let diff = targetDow - baseDow;
+      if (diff < 0) diff += 7; // Hari terdekat ke depan
+
+      // Jika user menyebut secara eksplisit "minggu depan" / "pekan depan" TANPA frasa "minggu ini"
+      const wantsNextWeek =
+        /\b(?:minggu depan|pekan depan)\b/i.test(lower) &&
+        !/\b(?:minggu ini|pekan ini)\b/i.test(lower);
+      if (wantsNextWeek) {
+        diff += 7;
+      }
+
+      const targetIso = addDaysIso(baseDateIso, diff);
+      const dateFormatted = formatIsoToReadable(targetIso);
+      return {
+        queryDates: [targetIso],
+        dateLabel: `hari ${dayName}, ${dateFormatted}`,
+        isWeekRange: false,
+        isSpecificDay: true,
+      };
+    }
+  }
+
+  // 3. Cek Rentang Pekan / Minggu
+  if (/\b(pekan depan|minggu depan)\b/i.test(lower)) {
+    let daysToMonday = 1 - baseDow;
+    if (daysToMonday <= 0) daysToMonday += 7;
+    const mondayNext = addDaysIso(baseDateIso, daysToMonday);
+    const rangeDates: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      rangeDates.push(addDaysIso(mondayNext, i));
+    }
+    const startStr = formatIsoToReadable(rangeDates[0]);
+    const endStr = formatIsoToReadable(rangeDates[6]);
+    return {
+      queryDates: rangeDates,
+      dateLabel: `pekan depan (${startStr} – ${endStr})`,
+      isWeekRange: true,
+      isSpecificDay: false,
+    };
+  }
+
+  if (/\b(minggu ini|pekan ini|sepekan|seminggu)\b/i.test(lower)) {
+    let daysToMonday = 1 - baseDow;
+    if (daysToMonday > 0) daysToMonday -= 7;
+    const mondayThis = addDaysIso(baseDateIso, daysToMonday);
+    const rangeDates: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      rangeDates.push(addDaysIso(mondayThis, i));
+    }
+    const startStr = formatIsoToReadable(rangeDates[0]);
+    const endStr = formatIsoToReadable(rangeDates[6]);
+    return {
+      queryDates: rangeDates,
+      dateLabel: `pekan ini (${startStr} – ${endStr})`,
+      isWeekRange: true,
+      isSpecificDay: false,
+    };
+  }
+
+  // 4. Default: Hari ini
+  const dayName = getDayNameFromIso(baseDateIso);
+  const dateFormatted = formatIsoToReadable(baseDateIso);
+  return {
+    queryDates: [baseDateIso],
+    dateLabel: `hari ini (${dayName}, ${dateFormatted})`,
+    isWeekRange: false,
+    isSpecificDay: true,
+  };
 }
 
 /**

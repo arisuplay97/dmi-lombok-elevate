@@ -31,6 +31,9 @@ import {
   createSpeechRecognition,
   enableFarFieldMicBoost,
   extractAgendaFromSpeech,
+  formatIsoToReadable,
+  getDayNameFromIso,
+  getGreetingWita,
   isBrowserCurrentlySpeaking,
   isLikelySpeakerEcho,
   normalizeTimeDot,
@@ -38,6 +41,7 @@ import {
   pauseSpeaking,
   playChime,
   releaseFarFieldMicBoost,
+  resolveScheduleQuery,
   resumeSpeaking,
   speakWithConfiguredProvider,
   stopSpeaking,
@@ -1370,6 +1374,21 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // 0c. Sapaan Ramah Sesuai Waktu WITA (Lombok / Bali / Indonesia Tengah)
+      if (
+        /^(?:halo|hai|hey|hei|pagi|siang|sore|malam|selamat pagi|selamat siang|selamat sore|selamat malam|assalamualaikum)\b/i.test(
+          lower
+        ) &&
+        !/\b(jadwal|agenda|notulen|tugas|buat|catat|tambah|baca|kirim)\b/i.test(lower)
+      ) {
+        const greetingWita = getGreetingWita();
+        speakWithTiara(
+          `${greetingWita}, Pak Dirut. Ada yang bisa saya bantu terkait jadwal agenda atau notulen rapat?`,
+          { nextStage: "active_session", withChime: "wake" }
+        );
+        return;
+      }
+
       // 1. JIKA SEDANG MENUNGGU KONFIRMASI PILIHAN DARI BEBERAPA KANDIDAT NOTULEN MIRIP
       if (
         dialogStageRef.current === "awaiting_notulen_choice" &&
@@ -1666,42 +1685,25 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // 5. TANYA JADWAL / AGENDA (Hari ini, Besok, Lusa, atau Tanggal Spesifik)
+      // 5. TANYA JADWAL / AGENDA (Hari ini, Besok, Lusa, Hari Tertentu misal Sabtu/Jumat, atau Pekan Ini)
       if (
         /\b(jadwal|agenda|acara|briefing|kegiatan)\b/i.test(lower) &&
         !/\b(tambah|tambahkan|buat|catat|jadwalkan)\b/i.test(lower)
       ) {
-        let queryDate = TODAY_ISO;
-        let dateLabel = "hari ini";
+        const queryRes = resolveScheduleQuery(cmd, TODAY_ISO);
+        const { queryDates, dateLabel, isWeekRange } = queryRes;
 
-        if (/\bbesok\b/i.test(lower)) {
-          const [y, m, d] = TODAY_ISO.split("-").map(Number);
-          const nextDay = new Date(y, m - 1, d + 1);
-          queryDate = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, "0")}-${String(nextDay.getDate()).padStart(2, "0")}`;
-          dateLabel = "besok (Kamis, 5 November)";
-        } else if (/\blusa\b/i.test(lower)) {
-          const [y, m, d] = TODAY_ISO.split("-").map(Number);
-          const lusaDay = new Date(y, m - 1, d + 2);
-          queryDate = `${lusaDay.getFullYear()}-${String(lusaDay.getMonth() + 1).padStart(2, "0")}-${String(lusaDay.getDate()).padStart(2, "0")}`;
-          dateLabel = "lusa (Jumat, 6 November)";
-        } else if (/\bkemarin\b/i.test(lower)) {
-          const [y, m, d] = TODAY_ISO.split("-").map(Number);
-          const prevDay = new Date(y, m - 1, d - 1);
-          queryDate = `${prevDay.getFullYear()}-${String(prevDay.getMonth() + 1).padStart(2, "0")}-${String(prevDay.getDate()).padStart(2, "0")}`;
-          dateLabel = "kemarin";
-        }
-
-        const targetItems = agendasRef.current.filter(
-          (a) => a.tanggal === queryDate
+        const targetItems = agendasRef.current.filter((a) =>
+          queryDates.includes(a.tanggal)
         );
-        const targetNotulens = notulenRef.current.filter(
-          (n) => n.tanggalIso === queryDate
+        const targetNotulens = notulenRef.current.filter((n) =>
+          queryDates.includes(n.tanggalIso)
         );
 
         if (targetItems.length === 0) {
           if (targetNotulens.length > 0) {
             speakWithTiara(
-              `Tidak ada jadwal agenda kegiatan untuk ${dateLabel}, Pak Dirut. Namun terdapat ${targetNotulens.length} arsip notulen rapat pada tanggal tersebut: ${targetNotulens.map((n) => n.judul).join(", ")}. Apakah ingin saya buka?`,
+              `Tidak ada jadwal agenda kegiatan untuk ${dateLabel}, Pak Dirut. Namun terdapat ${targetNotulens.length} arsip notulen rapat pada waktu tersebut: ${targetNotulens.map((n) => n.judul).join(", ")}. Apakah ingin saya buka?`,
               { nextStage: "active_session" }
             );
           } else {
@@ -1713,7 +1715,20 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const isTodayQuery = queryDate === TODAY_ISO;
+        if (isWeekRange) {
+          const sorted = [...targetItems].sort((a, b) =>
+            `${a.tanggal} ${a.mulai}`.localeCompare(`${b.tanggal} ${b.mulai}`)
+          );
+          const first = sorted[0];
+          speakWithTiara(
+            `Sepanjang ${dateLabel}, terdapat ${targetItems.length} agenda kegiatan. Agenda terdekat adalah ${first.judul} pada hari ${getDayNameFromIso(first.tanggal)}, ${formatIsoToReadable(first.tanggal)} pukul ${first.mulai.replace(".", " lewat ")} di ${first.lokasi}. Apakah ingin melihat daftar agenda di kalender?`,
+            { nextStage: "active_session" }
+          );
+          return;
+        }
+
+        const isTodayQuery =
+          queryDates.length === 1 && queryDates[0] === TODAY_ISO;
         const upcoming = isTodayQuery
           ? targetItems.filter((a) => !a.selesaiAcara)
           : targetItems;

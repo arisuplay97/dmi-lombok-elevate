@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { TODAY_ISO } from "@/data/pdam-data";
 import { compressImageFile } from "@/lib/ai-service";
 import { usePdamStore } from "@/lib/pdam-store";
-import { normalizeTimeDot } from "@/lib/tiara-speech";
+import { getGreetingWita, normalizeTimeDot } from "@/lib/tiara-speech";
 import type {
   AgendaItem,
   AiAuthScheme,
@@ -524,7 +524,7 @@ export function MobilePwaApp({
         )} di ${nextAgenda.lokasi}.`
       : "Seluruh jadwal hari ini telah selesai.";
     speakCustom(
-      `Selamat pagi, ${settings.namaDirut}. Hari ini ada ${count} agenda kegiatan. ${nxtText}`
+      `${getGreetingWita()}, ${settings.namaDirut}. Hari ini ada ${count} agenda kegiatan. ${nxtText}`
     );
     toast.success(
       settings.ttsBriefingAktif
@@ -836,7 +836,7 @@ export function MobilePwaApp({
                 <div>
                   <small>{formatFullHeaderDate(TODAY_ISO)}</small>
                   <h1 className="d">
-                    Selamat pagi,{" "}
+                    {getGreetingWita()},{" "}
                     <span style={{ color: "#7A808C" }}>
                       {settings.namaDirut}
                     </span>

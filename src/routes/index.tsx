@@ -7,6 +7,7 @@ import {
   TODAY_ISO,
 } from "@/data/pdam-data";
 import { usePdamStore } from "@/lib/pdam-store";
+import { getGreetingWita } from "@/lib/tiara-speech";
 import type { StatusNotulen } from "@/lib/types";
 
 export const Route = createFileRoute("/")({
@@ -184,7 +185,7 @@ function DashboardBerandaPage() {
           lineHeight: 1.15,
         }}
       >
-        Selamat pagi,{" "}
+        {getGreetingWita()},{" "}
         <span style={{ color: "#7A808C" }}>{settings.namaDirut}</span>
       </h1>
 
