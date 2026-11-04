@@ -171,6 +171,31 @@ let activeAudioUrl: string | null = null;
 let activeCloudAbort: AbortController | null = null;
 let isFetchingCloudTts = false;
 
+// Shared Audio element yang di-unlock pada gesture pengguna pertama (diperlukan untuk iOS Safari / PWA WebKit)
+let sharedUnlockedAudio: HTMLAudioElement | null = null;
+
+export function warmUpAudioPlayback(): void {
+  if (typeof window === "undefined") return;
+  try {
+    getAudioContext();
+    if (!sharedUnlockedAudio) {
+      sharedUnlockedAudio = new Audio();
+      sharedUnlockedAudio.preload = "auto";
+    }
+  } catch {
+    // ignore
+  }
+}
+
+if (typeof window !== "undefined") {
+  const onUserInteraction = () => {
+    warmUpAudioPlayback();
+  };
+  window.addEventListener("pointerdown", onUserInteraction, { once: true, passive: true });
+  window.addEventListener("touchstart", onUserInteraction, { once: true, passive: true });
+  window.addEventListener("keydown", onUserInteraction, { once: true, passive: true });
+}
+
 function cleanupCloudAudio(): void {
   if (activeCloudAbort) {
     try {
@@ -799,7 +824,13 @@ export function speakWithConfiguredProvider(
 
       const objectUrl = URL.createObjectURL(audioBlob);
       activeAudioUrl = objectUrl;
-      const audio = new Audio(objectUrl);
+
+      // Gunakan audio element yang sudah ter-unlock gesture atau buat baru
+      let audio = sharedUnlockedAudio;
+      if (!audio) {
+        audio = new Audio();
+        sharedUnlockedAudio = audio;
+      }
       activeAudioEl = audio;
       isFetchingCloudTts = false;
 
@@ -818,7 +849,28 @@ export function speakWithConfiguredProvider(
       audio.onended = finishAudio;
       audio.onerror = finishAudio;
 
-      await audio.play();
+      audio.src = objectUrl;
+      audio.load();
+
+      try {
+        await audio.play();
+      } catch (playErr) {
+        // Jika iOS/Safari PWA memblokir karena gesture timing, coba putar via Web Audio API AudioBuffer
+        const ctx = getAudioContext();
+        if (ctx) {
+          const arrayBuf = await audioBlob.arrayBuffer();
+          const audioBuffer = await ctx.decodeAudioData(arrayBuf);
+          const source = ctx.createBufferSource();
+          source.buffer = audioBuffer;
+          source.playbackRate.value = audio.playbackRate;
+          source.connect(ctx.destination);
+          source.onended = finishAudio;
+          opts?.onStart?.();
+          source.start(0);
+        } else {
+          throw playErr;
+        }
+      }
     } catch (err) {
       if (controller.signal.aborted) {
         isFetchingCloudTts = false;

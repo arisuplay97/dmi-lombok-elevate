@@ -230,6 +230,7 @@ function sanitizeLoadedSettings(
   const merged: AssistantSettings = {
     ...INITIAL_SETTINGS,
     ...(rawSettings ?? {}),
+    persistSecretsOnDevice: true,
   };
 
   // Migrasi otomatis bila sebelumnya tersimpan gateway lama ("Fonnte" / "Wablas") atau token dummy lama
@@ -257,24 +258,17 @@ function sanitizeLoadedSettings(
     }
   }
 
-  // Muat kunci rahasia dari sessionStorage atau pertahankan yang tersimpan di perangkat
+  // Muat kunci rahasia dari sessionStorage atau localStorage
   if (typeof window !== "undefined") {
     try {
       const rawSession = window.sessionStorage.getItem(SECRETS_SESSION_KEY);
       if (rawSession) {
         const sec = JSON.parse(rawSession) as Partial<SecretKeysBundle>;
-        merged.aiApiKey = sec.aiApiKey || merged.aiApiKey || "";
-        merged.sttApiKey = sec.sttApiKey || merged.sttApiKey || "";
-        merged.ttsApiKey = sec.ttsApiKey || merged.ttsApiKey || "";
-        merged.cartesiaApiKey =
-          sec.cartesiaApiKey || merged.cartesiaApiKey || "";
-        merged.waApiToken = sec.waApiToken || merged.waApiToken || "";
-      } else if (!merged.persistSecretsOnDevice) {
-        merged.aiApiKey = "";
-        merged.sttApiKey = "";
-        merged.ttsApiKey = "";
-        merged.cartesiaApiKey = "";
-        merged.waApiToken = "";
+        if (sec.aiApiKey) merged.aiApiKey = sec.aiApiKey;
+        if (sec.sttApiKey) merged.sttApiKey = sec.sttApiKey;
+        if (sec.ttsApiKey) merged.ttsApiKey = sec.ttsApiKey;
+        if (sec.cartesiaApiKey) merged.cartesiaApiKey = sec.cartesiaApiKey;
+        if (sec.waApiToken) merged.waApiToken = sec.waApiToken;
       }
     } catch {
       // Abaikan bila sessionStorage diblokir browser
@@ -311,6 +305,7 @@ function nowHHMM(): string {
   ).padStart(2, "0")}`;
 }
 
+// Persistensi settings & secrets di perangkat dan server
 function persistSettingsToStorage(settings: AssistantSettings): boolean {
   if (typeof window === "undefined") return false;
   try {
@@ -321,24 +316,21 @@ function persistSettingsToStorage(settings: AssistantSettings): boolean {
       cartesiaApiKey: settings.cartesiaApiKey,
       waApiToken: settings.waApiToken,
     };
-    window.sessionStorage.setItem(
-      SECRETS_SESSION_KEY,
-      JSON.stringify(secretsPayload)
-    );
+    try {
+      window.sessionStorage.setItem(
+        SECRETS_SESSION_KEY,
+        JSON.stringify(secretsPayload)
+      );
+    } catch {
+      // ignore
+    }
 
-    const safeSettingsForLocal: AssistantSettings =
-      settings.persistSecretsOnDevice
-        ? settings
-        : {
-            ...settings,
-            aiApiKey: "",
-            sttApiKey: "",
-            ttsApiKey: "",
-            cartesiaApiKey: "",
-            waApiToken: "",
-          };
+    // Selalu simpan juga di localStorage agar di browser PWA / tab baru tidak hilang
+    const safeSettingsForLocal: AssistantSettings = {
+      ...settings,
+      persistSecretsOnDevice: true,
+    };
 
-    // Simpan settings di key terpisah agar tidak pernah gagal walau foto notulen berukuran besar
     window.localStorage.setItem(
       SETTINGS_STORAGE_KEY,
       JSON.stringify(safeSettingsForLocal)
@@ -1487,21 +1479,76 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // 5. TANYA JADWAL / AGENDA HARI INI
-      if (/\b(jadwal|agenda|acara|briefing|kegiatan hari ini)\b/i.test(lower)) {
-        const todayItems = agendasRef.current.filter(
-          (a) => a.tanggal === TODAY_ISO
+      // 5. TANYA JADWAL / AGENDA (Hari ini, Besok, Lusa, atau Tanggal Spesifik)
+      if (
+        /\b(jadwal|agenda|acara|briefing|kegiatan)\b/i.test(lower) &&
+        !/\b(tambah|tambahkan|buat|catat|jadwalkan)\b/i.test(lower)
+      ) {
+        let queryDate = TODAY_ISO;
+        let dateLabel = "hari ini";
+
+        if (/\bbesok\b/i.test(lower)) {
+          const [y, m, d] = TODAY_ISO.split("-").map(Number);
+          const nextDay = new Date(y, m - 1, d + 1);
+          queryDate = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, "0")}-${String(nextDay.getDate()).padStart(2, "0")}`;
+          dateLabel = "besok (Kamis, 5 November)";
+        } else if (/\blusa\b/i.test(lower)) {
+          const [y, m, d] = TODAY_ISO.split("-").map(Number);
+          const lusaDay = new Date(y, m - 1, d + 2);
+          queryDate = `${lusaDay.getFullYear()}-${String(lusaDay.getMonth() + 1).padStart(2, "0")}-${String(lusaDay.getDate()).padStart(2, "0")}`;
+          dateLabel = "lusa (Jumat, 6 November)";
+        } else if (/\bkemarin\b/i.test(lower)) {
+          const [y, m, d] = TODAY_ISO.split("-").map(Number);
+          const prevDay = new Date(y, m - 1, d - 1);
+          queryDate = `${prevDay.getFullYear()}-${String(prevDay.getMonth() + 1).padStart(2, "0")}-${String(prevDay.getDate()).padStart(2, "0")}`;
+          dateLabel = "kemarin";
+        }
+
+        const targetItems = agendasRef.current.filter(
+          (a) => a.tanggal === queryDate
         );
-        const upcoming = todayItems.filter((a) => !a.selesaiAcara);
-        if (upcoming.length === 0) {
-          speakWithTiara(
-            `Seluruh ${todayItems.length} agenda hari ini telah selesai, Pak Dirut. Ada hal lain yang ingin diperiksa?`,
-            { nextStage: "active_session" }
-          );
+        const targetNotulens = notulenRef.current.filter(
+          (n) => n.tanggalIso === queryDate
+        );
+
+        if (targetItems.length === 0) {
+          if (targetNotulens.length > 0) {
+            speakWithTiara(
+              `Tidak ada jadwal agenda kegiatan untuk ${dateLabel}, Pak Dirut. Namun terdapat ${targetNotulens.length} arsip notulen rapat pada tanggal tersebut: ${targetNotulens.map((n) => n.judul).join(", ")}. Apakah ingin saya buka?`,
+              { nextStage: "active_session" }
+            );
+          } else {
+            speakWithTiara(
+              `Belum ada agenda kegiatan yang terjadwal untuk ${dateLabel}, Pak Dirut. Apakah ingin menambahkan agenda baru?`,
+              { nextStage: "active_session" }
+            );
+          }
+          return;
+        }
+
+        const isTodayQuery = queryDate === TODAY_ISO;
+        const upcoming = isTodayQuery
+          ? targetItems.filter((a) => !a.selesaiAcara)
+          : targetItems;
+
+        const next = upcoming[0] || targetItems[0];
+        const nextTime = next.mulai.replace(".", " lewat ");
+
+        if (isTodayQuery) {
+          if (upcoming.length === 0) {
+            speakWithTiara(
+              `Seluruh ${targetItems.length} agenda hari ini telah selesai, Pak Dirut. Ada hal lain yang ingin diperiksa?`,
+              { nextStage: "active_session" }
+            );
+          } else {
+            speakWithTiara(
+              `Hari ini terdapat ${targetItems.length} agenda, dan ${upcoming.length} agenda belum berlangsung. Berikutnya pukul ${nextTime}, ${next.judul} di ${next.lokasi}. Apakah ingin melihat halaman agenda?`,
+              { nextStage: "active_session" }
+            );
+          }
         } else {
-          const next = upcoming[0];
           speakWithTiara(
-            `Hari ini terdapat ${todayItems.length} agenda, dan ${upcoming.length} agenda belum berlangsung. Berikutnya pukul ${next.mulai}, ${next.judul} di ${next.lokasi}. Apakah ingin melihat halaman agenda?`,
+            `Untuk ${dateLabel}, terdapat ${targetItems.length} agenda kegiatan: mulai pukul ${nextTime}, ${next.judul} di ${next.lokasi}. Apakah ingin melihat rincian agenda di kalender?`,
             { nextStage: "active_session" }
           );
         }
