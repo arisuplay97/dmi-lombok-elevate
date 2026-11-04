@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, Check, Mic, X } from "lucide-react";
 import { usePdamStore } from "@/lib/pdam-store";
+import { TODAY_ISO } from "@/data/pdam-data";
 import { detectScheduleConflicts } from "@/lib/tiara-speech";
 import type { JenisAgenda } from "@/lib/types";
 
@@ -8,7 +9,7 @@ export function VoiceAgendaConfirmModal() {
   const { voiceDraft, setVoiceDraft, agendas, addAgenda } = usePdamStore();
 
   const [judul, setJudul] = useState("");
-  const [tanggal, setTanggal] = useState("2026-11-04");
+  const [tanggal, setTanggal] = useState(TODAY_ISO);
   const [mulai, setMulai] = useState("09.00");
   const [selesai, setSelesai] = useState("10.00");
   const [lokasi, setLokasi] = useState("Ruang Rapat Utama");

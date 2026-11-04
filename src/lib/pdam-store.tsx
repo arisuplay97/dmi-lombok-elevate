@@ -1757,20 +1757,48 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // 3. PENCARIAN & NAVIGASI NOTULEN VIA SUARA (Harus dijalankan sebelum hasAiKey!)
-      const isAskingNotulenSearch =
-        ((!hasDemonstrativeReference && !isInNotulenFollowup) ||
-          /\b(cari|carikan|notulen lain|lainnya)\b/i.test(lower)) &&
-        ((/\b(carikan|cari|bukakan|buka|tampilkan|munculkan|lihat|cek)\b/i.test(
+      // 3. PENCARIAN & NAVIGASI NOTULEN VIA SUARA (Harus diprioritaskan sebelum hasAiKey!)
+      const hasNotulenKeyword =
+        /\b(notulen|notulensi|notula|tulen|tulensi|notul|hasil rapat|transkrip rapat|catatan rapat)\b/i.test(
           lower
-        ) &&
-          /\b(notulen|notulensi|hasil rapat|transkrip|rapat)\b/i.test(lower)) ||
-          (/\b(notulen|notulensi)\b/i.test(lower) &&
-            /\b(tanggal|tgl|bulan|januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember|terbaru|terakhir|kemarin|hari ini|rapat)\b/i.test(
-              lower
-            )) ||
-          /^(?:notulen|notulensi)\s+[a-z0-9]/i.test(lower) ||
-          /\b(daftar notulen|ada notulen apa)\b/i.test(lower));
+        ) || /\bno\s+tulen\b/i.test(lower);
+
+      const hasNotulenSearchVerb =
+        /\b(cari|carikan|bukakan|buka|tampilkan|munculkan|lihat|cek|pilih|pilihkan)\b/i.test(
+          lower
+        );
+
+      const hasDateOrTimeQuery =
+        /\b(\d{1,2}\s+(?:januari|jan|februari|feb|maret|mar|april|apr|mei|juni|jun|juli|jul|agustus|agu|ags|september|sep|oktober|okt|november|nov|nopember|desember|des)|tanggal\s+\d{1,2}|tgl\s+\d{1,2}|hari ini|kemarin|bulan ini|bulan lalu|terbaru|terakhir)\b/i.test(
+          lower
+        );
+
+      // Jika user sedang di dalam detail suatu notulen dan bertanya isi/keputusannya (tanpa menyebut tanggal baru atau kata cari)
+      const isAskingAboutCurrentNotulen =
+        Boolean(activeNotulen) &&
+        (hasDemonstrativeReference || isInNotulenFollowup) &&
+        !hasNotulenSearchVerb &&
+        !hasDateOrTimeQuery &&
+        !/\b(lain|lainnya|ganti|berikutnya)\b/i.test(lower);
+
+      const isAskingNotulenSearch =
+        !isAskingAboutCurrentNotulen &&
+        (
+          // Kasus A: Menyebut kata notulen/tulen/notula/hasil rapat
+          (hasNotulenKeyword && (
+            hasDateOrTimeQuery ||
+            hasNotulenSearchVerb ||
+            /\b(lain|lainnya|daftar|semua|ada apa|apa saja|rekap|pilihan)\b/i.test(lower) ||
+            /^(?:notulen|notulensi|notula|tulen|tulensi|notul)\b/i.test(lower) ||
+            lower.length > 5
+          )) ||
+          // Kasus B: Kata perintah cari + rapat ("carikan rapat kemarin", "buka rapat bulanan")
+          (hasNotulenSearchVerb && /\b(rapat|hasil rapat|notulen|tulen)\b/i.test(lower) && !/\b(agenda|jadwal)\b/i.test(lower)) ||
+          // Kasus C: Ucapan langsung tanggal + notulen ("tulen 4 november", "4 nov tulen", "notulen 4")
+          (hasNotulenKeyword && /\b\d{1,2}\b/.test(lower)) ||
+          // Kasus D: Pertanyaan daftar notulen ("ada notulen apa saja?", "daftar notulen rapat")
+          /\b(daftar notulen|ada notulen|notulen apa saja|notulen yang ada)\b/i.test(lower)
+        );
 
       if (isAskingNotulenSearch) {
         const searchRes = searchNotulenSmart(
@@ -2936,9 +2964,10 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
     const logId = Date.now();
     const gatewayName = settingsRef.current.waGateway;
 
+    const todayDateStr = `${getDayNameFromIso(TODAY_ISO)}, ${formatIsoToReadable(TODAY_ISO)}`;
     const briefingText = [
       `*BRIEFING PAGI AGENDA DIREKSI*`,
-      `Perumdam Tirta Ardhia Rinjani · Rabu, 4 Nov 2026`,
+      `Perumdam Tirta Ardhia Rinjani · ${todayDateStr}`,
       ``,
       ...todayItems.map(
         (a, idx) => `${idx + 1}. *${a.mulai}* — ${a.judul} (${a.lokasi})`

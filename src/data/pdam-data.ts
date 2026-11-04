@@ -7,7 +7,30 @@ import type {
   WaRecipient,
 } from "@/lib/types";
 
-export const TODAY_ISO = "2026-11-04"; // Rabu, 4 November 2026
+/**
+ * Mengambil tanggal hari ini secara dinamis berdasarkan Zona Waktu Indonesia Tengah (WITA / UTC+8).
+ * Wilayah: Lombok Tengah, NTB, Bali, Makassar.
+ */
+export function getWitaIsoDate(): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Makassar",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+  } catch {
+    const now = new Date();
+    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+    const dt = new Date(utcMs + 8 * 3600000);
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    const d = String(dt.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+}
+
+export const TODAY_ISO = getWitaIsoDate();
 
 export const INITIAL_SETTINGS: AssistantSettings = {
   namaDirut: "Pak Dirut",
@@ -213,6 +236,36 @@ export const INITIAL_AGENDA: AgendaItem[] = [
   },
   {
     id: 9,
+    judul: "Koordinasi Pengawasan Mutu Air & Lab",
+    tanggal: "2026-11-05",
+    mulai: "13.30",
+    selesai: "14.30",
+    lokasi: "Ruang Rapat Kecil",
+    jenis: "rapat",
+    peserta: 6,
+    labelPeserta: "Tim Penguji Lab Air",
+    catatan: "Verifikasi standar kekeruhan dan desinfeksi sebelum musim penghujan.",
+    sumber: "manual",
+    berulang: "tidak",
+    selesaiAcara: false,
+  },
+  {
+    id: 10,
+    judul: "Briefing Tim Reaksi Cepat Aduan",
+    tanggal: "2026-11-05",
+    mulai: "15.00",
+    selesai: "16.00",
+    lokasi: "Posko Siaga Tiara",
+    jenis: "rapat",
+    peserta: 8,
+    labelPeserta: "Petugas Lapangan & Operator",
+    catatan: "Optimalisasi respon cepat tiket aduan WhatsApp pelanggan.",
+    sumber: "suara",
+    berulang: "tidak",
+    selesaiAcara: false,
+  },
+  {
+    id: 11,
     judul: "Kunjungan Sumber Mata Air Aik Berik",
     tanggal: "2026-11-06",
     mulai: "08.30",
@@ -363,57 +416,114 @@ export const INITIAL_NOTULEN: NotulenItem[] = [
   },
   {
     id: 3,
-    judul: "Rapat Evaluasi Triwulan",
+    judul: "Rapat Koordinasi Sekper",
     tanggal: "4 Nov 2026",
     tanggalIso: "2026-11-04",
-    jam: "07.30 – 08.42",
+    jam: "07.30 – 08.15",
+    lokasi: "Ruang Rapat Sekretariat",
+    pimpinan: "Kasubbag Sekper & Humas",
+    peserta: 6,
+    sumberInput: "audio",
+    durasi: "45 menit",
+    durasiMenit: 45,
+    audioFileName: "rakor-sekper-04nov.m4a",
+    audioDihapus: false,
+    dokumentasiFoto: [],
+    status: "selesai",
+    infoSingkat: "2 keputusan · 2 tugas",
+    ringkasan:
+      "Koordinasi internal Sekretariat Perusahaan mengenai tata kelola surat masuk/keluar, pengelolaan jadwal harian Direktur Utama, serta sinkronisasi diseminasi informasi publik lewat media massa.",
+    keputusan: [
+      "Penertiban alur disposisi digital Direktur Utama maksimal 1 jam setelah surat diterima.",
+      "Laporan mingguan kliping media dan sentimen publik disampaikan setiap hari Jumat.",
+    ],
+    transkrip:
+      "[00:00:15] Kasubbag Sekper: Kita bahas alur disposisi surat Dirut dan protokoler agenda direksi.\n[00:15:30] Staf Protokol: Agenda harian sudah sinkron ke sistem Tiara dan siap diakses pimpinan.",
+    tugasCount: 2,
+  },
+  {
+    id: 4,
+    judul: "Rapat Sekretariat",
+    tanggal: "4 Nov 2026",
+    tanggalIso: "2026-11-04",
+    jam: "08.30 – 09.30",
+    lokasi: "Ruang Rapat Kecil",
+    pimpinan: "Kasubbag Umum & Kepegawaian",
+    peserta: 8,
+    sumberInput: "audio",
+    durasi: "1 jam",
+    durasiMenit: 60,
+    audioFileName: "rapat-sekretariat-04nov.mp3",
+    audioDihapus: false,
+    dokumentasiFoto: [],
+    status: "selesai",
+    infoSingkat: "2 keputusan · 1 tugas",
+    ringkasan:
+      "Rapat pemantapan sarana prasarana operasional kantor pusat, pengadaan ATK penunjang pelayanan pelanggan, dan evaluasi kedisiplinan staf administrasi umum.",
+    keputusan: [
+      "Optimalisasi ketersediaan formulir pendaftaran pelanggan dan sarana front office.",
+      "Inventarisasi aset perangkat komputer dan jaringan kantor cabang Lombok Tengah.",
+    ],
+    transkrip:
+      "[00:00:10] Kasubbag Umum: Agenda kita pagi ini memastikan kesiapan fasilitas pelayanan dan ketertiban administrasi.\n[00:30:15] Staf Umum: Pengadaan ATK triwulan IV sudah memasuki tahap final verifikasi.",
+    tugasCount: 1,
+  },
+  {
+    id: 5,
+    judul: "Rapat Bulanan",
+    tanggal: "4 Nov 2026",
+    tanggalIso: "2026-11-04",
+    jam: "10.00 – 11.45",
     lokasi: "Ruang Rapat Utama",
     pimpinan: "Direktur Utama",
     peserta: 14,
     sumberInput: "audio",
-    durasi: "1 jam 12 menit",
-    durasiMenit: 72,
+    durasi: "1 jam 45 menit",
+    durasiMenit: 105,
+    audioFileName: "rapat-bulanan-04nov.m4a",
+    audioDihapus: false,
+    dokumentasiFoto: [],
+    status: "diperiksa",
+    infoSingkat: "Menunggu pemeriksaan sekretariat",
+    ringkasan:
+      'Hasil ekstraksi rapat "rapat bulanan". Dibahas evaluasi teknis distribusi air bersih Perumdam Tirta Ardhia Rinjani, langkah percepatan penanganan laporan warga, serta penugasan lintas bagian dengan target terukur.',
+    keputusan: [
+      "Menetapkan tindak lanjut prioritas hasil rapat bulanan untuk dieksekusi pekan ini.",
+      "Monitoring progres dilaporkan ke Direktur Utama melalui Sekretariat dalam 3 hari kerja.",
+    ],
+    transkrip:
+      '[00:00:10] Direktur Utama: Kita mulai rapat bulanan evaluasi distribusi air bersih dan penanganan laporan warga.\n[00:45:20] Kabag Teknik: Laporan perbaikan jaringan transmisi dan pompa booster sudah siap dieksekusi.\n[01:10:00] Direktur Utama: Tetapkan tindak lanjut prioritas pekan ini dan pantau progresnya dalam 3 hari kerja.',
+    tugasCount: 2,
+  },
+  {
+    id: 6,
+    judul: "Rapat Evaluasi Triwulan",
+    tanggal: "4 Nov 2026",
+    tanggalIso: "2026-11-04",
+    jam: "13.30 – 15.00",
+    lokasi: "Ruang Rapat Utama",
+    pimpinan: "Direktur Utama",
+    peserta: 12,
+    sumberInput: "audio",
+    durasi: "1 jam 30 menit",
+    durasiMenit: 90,
     audioFileName: "evaluasi-triwulan-iv-04nov.wav",
     audioDihapus: false,
     dokumentasiFoto: [],
-    status: "diproses",
-    infoSingkat: "Audio 1 jam 12 menit",
+    status: "selesai",
+    infoSingkat: "2 keputusan · 2 tugas",
     ringkasan:
       "Evaluasi capaian cakupan layanan triwulan berjalan, rasio efisiensi penagihan cabang, serta target penambahan sambungan rumah (SR) baru akhir tahun.",
     keputusan: [
-      "Draf sementara AI: Percepatan verifikasi calon pelanggan sambungan rumah baru di 4 kecamatan prioritas.",
+      "Percepatan verifikasi calon pelanggan sambungan rumah baru di 4 kecamatan prioritas.",
+      "Penetapan target efisiensi penagihan cabang minimal 95% sebelum tutup tahun buku.",
     ],
     transkrip:
-      "Sedang mentranskripsi rekaman rapat secara lengkap di latar belakang...",
-    tugasCount: 0,
+      "[00:00:12] Direktur Utama: Evaluasi kinerja triwulan ini menitikberatkan pada penambahan sambungan baru dan rasio efisiensi penagihan cabang.\n[00:50:00] Kabag Keuangan: Rasio penagihan bergerak naik dan target 95% optimis tercapai.",
+    tugasCount: 2,
   },
   {
-    id: 4,
-    judul: "Rapat Anggaran Pemeliharaan",
-    tanggal: "4 Nov 2026",
-    tanggalIso: "2026-11-04",
-    jam: "08.00 – 08.48",
-    lokasi: "Ruang Rapat Kecil",
-    pimpinan: "Kabag Keuangan & Teknik",
-    peserta: 6,
-    sumberInput: "audio",
-    durasi: "48 menit",
-    durasiMenit: 48,
-    audioFileName: "rapat-anggaran-pemeliharaan.m4a",
-    audioDihapus: false,
-    dokumentasiFoto: [],
-    status: "diproses",
-    infoSingkat: "Audio 48 menit",
-    ringkasan:
-      "Penyusunan rincian anggaran pemeliharaan berkala Instalasi Pengolahan Air (IPA), cadangan pompa distribusi, dan pengadaan meter air pengganti.",
-    keputusan: [
-      "Draf sementara AI: Prioritas anggaran difokuskan pada pemeliharaan preventif pompa intake dan stok meter pelanggan.",
-    ],
-    transkrip: "Dalam antrean pemrosesan latar belakang...",
-    tugasCount: 0,
-  },
-  {
-    id: 5,
+    id: 7,
     judul: "Penanganan Pipa & Distribusi Wilayah Barat",
     tanggal: "1 Nov 2026",
     tanggalIso: "2026-11-01",
@@ -438,7 +548,7 @@ export const INITIAL_NOTULEN: NotulenItem[] = [
     tugasCount: 2,
   },
   {
-    id: 6,
+    id: 8,
     judul: "Rapat Koordinasi Bagian Teknik",
     tanggal: "30 Okt 2026",
     tanggalIso: "2026-10-30",

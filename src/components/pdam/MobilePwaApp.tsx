@@ -1212,7 +1212,8 @@ export function MobilePwaApp({
                       className="chip"
                       onClick={() => setSelectedDateIso(TODAY_ISO)}
                     >
-                      Hari ini (4 Nov)
+                      Hari ini ({parseIsoLocal(TODAY_ISO).getDate()}{" "}
+                      {MONTH_NAMES_SHORT[parseIsoLocal(TODAY_ISO).getMonth()]})
                     </button>
                   )}
                   <button
@@ -2225,7 +2226,7 @@ function MobileVoiceSheet({
         <div>
           <div className="card" style={{ marginBottom: 12 }}>
             <span className="chip c-nt" style={{ marginBottom: 8 }}>
-              ◆ {candidateNotulens.length} Notulen Terkait Ditemukan
+              📌 {candidateNotulens.length} Notulen Terkait Ditemukan
             </span>
             <p style={{ fontWeight: 600, fontSize: 14 }}>
               Ditemukan beberapa notulen terkait &ldquo;
@@ -2259,6 +2260,37 @@ function MobileVoiceSheet({
                 </p>
               </button>
             ))}
+          </div>
+          {/* Banner Petunjuk Suara & Tombol Batal */}
+          <div
+            style={{
+              marginBottom: 12,
+              background: "rgba(107, 123, 255, 0.12)",
+              border: "1px solid rgba(107, 123, 255, 0.35)",
+              borderRadius: 12,
+              padding: "10px 12px",
+              fontSize: 12,
+              color: "var(--fg)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span style={{ fontSize: 16 }}>🎙️</span>
+            <div>
+              <b>Pilih lewat Suara atau Layar:</b> Silakan ucapkan{" "}
+              <i>“Pilihan pertama”</i>, <i>“Nomor 2”</i>, atau ketuk kartu di atas.
+            </div>
+          </div>
+          <div className="row">
+            <button
+              type="button"
+              className="btn g"
+              style={{ width: "100%" }}
+              onClick={onClose}
+            >
+              Batal & Kembali
+            </button>
           </div>
         </div>
       ) : (

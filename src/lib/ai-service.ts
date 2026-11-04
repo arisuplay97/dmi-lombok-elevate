@@ -7,6 +7,7 @@ import type {
   NotulenReadScope,
   TugasItem,
 } from "@/lib/types";
+import { getWitaIsoDate } from "./tiara-speech";
 
 const ORDINAL_ID = [
   "Pertama",
@@ -69,6 +70,13 @@ const STOP_WORDS = new Set([
   "notulensi",
   "notulensinya",
   "notulennya",
+  "tulen",
+  "tulensi",
+  "tulennya",
+  "tulensinya",
+  "notula",
+  "notulanya",
+  "notul",
   "hasil",
   "hasilnya",
   "rapat",
@@ -168,7 +176,7 @@ export interface NotulenSearchResult {
 export function searchNotulenSmart(
   rawSpeech: string,
   notulenList: NotulenItem[],
-  todayIso = "2026-11-04"
+  todayIso = getWitaIsoDate()
 ): NotulenSearchResult {
   const lower = rawSpeech.toLowerCase().trim();
   const wantsImmediateRead = /\b(bacakan|baca|dibacakan|bunyikan)\b/i.test(
@@ -198,7 +206,7 @@ export function searchNotulenSmart(
     targetMonth = String(prev.getMonth() + 1).padStart(2, "0");
   }
 
-  // 2. Cek pola eksplisit "tanggal 2 november" / "30 oktober" / "bulan november"
+  // 2. Cek pola eksplisit "tanggal 2 november" / "4 nov" / "tgl 4" / "notulen 4"
   const explicitDateMatch = lower.match(
     /(?:tanggal\s+|tgl\s+)?(\d{1,2})\s+(januari|jan|februari|feb|maret|mar|april|apr|mei|juni|jun|juli|jul|agustus|agu|ags|september|sep|oktober|okt|november|nov|nopember|desember|des)\b/i
   );
@@ -209,9 +217,14 @@ export function searchNotulenSmart(
     );
     targetMonth = MONTH_MAP[explicitDateMatch[2].toLowerCase()] || null;
   } else {
-    const dayOnlyMatch = lower.match(/(?:tanggal|tgl)\s+(\d{1,2})\b/i);
+    const dayOnlyMatch = lower.match(
+      /(?:tanggal\s+|tgl\s+|notulen\s+|notulensi\s+|tulen\s+|notula\s+)(\d{1,2})\b/i
+    );
     if (dayOnlyMatch) {
       targetDay = String(Number.parseInt(dayOnlyMatch[1], 10)).padStart(2, "0");
+      if (!targetMonth) {
+        targetMonth = todayIso.split("-")[1];
+      }
     }
     for (const [mName, mNum] of Object.entries(MONTH_MAP)) {
       if (new RegExp(`\\b${mName}\\b`, "i").test(lower)) {
@@ -429,8 +442,23 @@ export function searchNotulenSmart(
 
   const descParts: string[] = [];
   if (keywords.length > 0) descParts.push(`topik "${keywords.join(" ")}"`);
-  if (targetDay) descParts.push(`tanggal ${Number(targetDay)}`);
-  if (targetMonth) descParts.push(`bulan ${targetMonth}`);
+  if (targetDay && targetMonth) {
+    const monthNames = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ];
+    const mName = monthNames[Number(targetMonth) - 1] || `bulan ${targetMonth}`;
+    descParts.push(`tanggal ${Number(targetDay)} ${mName}`);
+  } else if (targetDay) {
+    descParts.push(`tanggal ${Number(targetDay)}`);
+  } else if (targetMonth) {
+    const monthNames = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ];
+    const mName = monthNames[Number(targetMonth) - 1] || `bulan ${targetMonth}`;
+    descParts.push(`bulan ${mName}`);
+  }
 
   return {
     matches: finalScored.map((s) => s.item),
@@ -466,12 +494,12 @@ export function resolveCandidateChoice(
     return candidates[candidates.length - 1] ?? null;
   }
 
-  // Cek tanggal yang disebut ("yang tanggal 2")
-  const dayMatch = lower.match(/(?:tanggal|tgl)?\s*(\d{1,2})\b/);
+  // Cek tanggal yang disebut ("yang tanggal 2") secara eksplisit
+  const dayMatch = lower.match(/(?:tanggal|tgl)\s*(\d{1,2})\b/);
   if (dayMatch) {
     const dayPad = String(Number.parseInt(dayMatch[1], 10)).padStart(2, "0");
-    const byDay = candidates.find((c) => c.tanggalIso.endsWith(`-${dayPad}`));
-    if (byDay) return byDay;
+    const byDay = candidates.filter((c) => c.tanggalIso.endsWith(`-${dayPad}`));
+    if (byDay.length === 1) return byDay[0];
   }
 
   // Cek kemiripan kata pada judul kandidat
@@ -1076,7 +1104,7 @@ export async function generateContextualReplyWithAi(
       .map((h) => `${h.role === "user" ? "Pak Dirut" : "Tiara"}: ${h.text}`)
       .join("\n");
 
-    const todayStr = ctx?.todayIso || "2026-11-04";
+    const todayStr = ctx?.todayIso || getWitaIsoDate();
     const witaStr = ctx?.witaTimeStr || "WITA";
 
     const agendasBlock = ctx?.agendas?.length
@@ -1114,12 +1142,21 @@ export async function generateContextualReplyWithAi(
           .join("\n")
       : "Semua tugas telah selesai.";
 
+    const [yNum, mNum, dNum] = todayStr.split("-").map(Number);
+    const dateObj = new Date(yNum, (mNum || 1) - 1, dNum || 1);
+    const dayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+    const monthNames = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ];
+    const todayReadable = `${dayNames[dateObj.getDay()]}, ${dNum} ${monthNames[dateObj.getMonth()]} ${yNum}`;
+
     const systemPrompt = `Kamu adalah Tiara, Asisten Virtual Resmi Direktur Utama Perumdam Tirta Ardhia Rinjani (PDAM Kabupaten Lombok Tengah).
 Tugasmu adalah mendampingi Direktur Utama (Pak Dirut) dengan informasi agenda kegiatan, arsip notulen rapat, tindak lanjut tugas, serta menjadi mitra berpikir (sparring partner) yang solutif dan cerdas.
 
 KONTEKS SISTEM PDAM LOMBOK TENGAH:
-- Hari & Tanggal Acuan: Rabu, 4 November 2026 (Format ISO: ${todayStr})
-- Waktu Lokal: ${witaStr}
+- Hari & Tanggal Acuan Hari Ini: ${todayReadable} (Format ISO: ${todayStr})
+- Waktu Lokal: ${witaStr} (Zona Waktu: WITA / UTC+8, Lombok Tengah, NTB)
 - Pimpinan: ${settings.namaDirut || "Pak Dirut"} (Direktur Utama)
 
 DATA AGENDA KEGIATAN RESMI:
@@ -1137,7 +1174,7 @@ PANDUAN MENJAWAB:
 1. Ringkas & Nyaman Didengar (TTS): Jawab secara lugas, padat (maksimal 2–3 kalimat agar nyaman didengarkan via suara TTS), berbahasa Indonesia formal eksekutif yang hangat dan santun, menyapa "Pak Dirut".
 2. Diskusi Bebas di Luar Agenda/Notulen: Kamu bebas diajak berdiskusi tentang wawasan umum, manajerial BUMD, kepemimpinan, efisiensi operasional air minum, hingga obrolan santai sehari-hari. Jawab langsung substansinya secara cerdas dan berwibawa.
 3. JANGAN Memaksa Membuat Rapat/Agenda: Ketika menjawab topik umum atau diskusi bebas, JANGAN PERNAH otomatis menyodorkan tawaran membuat rapat/agenda di akhir kalimat. Jawab murni sesuai substansi pertanyaan tanpa embel-embel birokrasi, KECUALI jika Pak Dirut sendiri yang secara eksplisit menginstruksikannya (seperti "Tolong jadwalkan", "Catat rapat", "Buat tugas").
-4. Pertanyaan Jadwal & Notulen: Jika Pak Dirut menanyakan jadwal kegiatan, periksa DATA AGENDA KEGIATAN di atas dengan cermat dan hitung hari dari acuan Rabu, 4 November 2026. Jika menanyakan notulen, berikan inti pokok keputusan rapat secara akurat.
+4. Pertanyaan Jadwal & Notulen: Jika Pak Dirut menanyakan jadwal kegiatan, periksa DATA AGENDA KEGIATAN di atas dengan cermat dan hitung hari dari acuan hari ini (${todayReadable}). Jika menanyakan notulen, berikan inti pokok keputusan rapat secara akurat.
 5. Kejujuran Teknis Lapangan: Jangan pernah mengarang data sensor fisik lapangan (misal debit pompa atau bar tekanan) yang tidak ada di data sistem. Sampaikan secara wajar dan sarankan konfirmasi ke tim lapangan jika data fisik tidak tercatat.
 6. Netralitas: Tetap netral terhadap isu politik praktis daerah, pilkada, dan SARA.`;
 

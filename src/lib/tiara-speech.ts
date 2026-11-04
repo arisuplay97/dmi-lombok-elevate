@@ -1143,6 +1143,14 @@ export function getWitaHours(): number {
   return getWitaDate().getHours();
 }
 
+export function getWitaIsoDate(): string {
+  const dt = getWitaDate();
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
 /**
  * Ucapan salam dinamis berdasarkan jam Waktu Indonesia Tengah (WITA / UTC+8):
  * - 05:00 – 10:59 : Selamat pagi
@@ -1183,7 +1191,7 @@ export interface ScheduleQueryResolution {
  */
 export function resolveScheduleQuery(
   rawSpeech: string,
-  baseDateIso = "2026-11-04"
+  baseDateIso = getWitaIsoDate()
 ): ScheduleQueryResolution {
   const lower = rawSpeech.toLowerCase().trim();
 
@@ -1317,7 +1325,7 @@ export function resolveScheduleQuery(
  */
 export function extractAgendaFromSpeech(
   rawSpeech: string,
-  baseDateIso = "2026-11-04"
+  baseDateIso = getWitaIsoDate()
 ): VoiceAgendaDraft {
   const text = rawSpeech.trim();
   const lower = text.toLowerCase();
@@ -1456,7 +1464,7 @@ export interface AgendaDraftUpdateResult {
 export function updateAgendaDraftFromSpeech(
   currentDraft: VoiceAgendaDraft,
   rawSpeech: string,
-  baseDateIso = "2026-11-04"
+  baseDateIso = getWitaIsoDate()
 ): AgendaDraftUpdateResult | null {
   const text = rawSpeech.trim();
   const lower = text.toLowerCase();
