@@ -34,6 +34,7 @@ import {
   formatIsoToReadable,
   getDayNameFromIso,
   getGreetingWita,
+  getWitaDate,
   isBrowserCurrentlySpeaking,
   isLikelySpeakerEcho,
   normalizeTimeDot,
@@ -1583,17 +1584,6 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
 
         // 2i. Jika ada kata rujukan demonstratif ("notulen tersebut", "rapat tadi") atau sedang dalam follow-up
         if (hasDemonstrativeReference || isInNotulenFollowup) {
-          const aiReply = await generateContextualReplyWithAi(
-            cmd,
-            historyRef.current,
-            activeNotulen,
-            settingsRef.current
-          );
-          if (aiReply) {
-            speakWithTiara(aiReply, { nextStage: "awaiting_notulen_followup" });
-            return;
-          }
-
           speakWithTiara(
             `Mengenai notulen ${activeNotulen.judul}: ${activeNotulen.ringkasan}. Apakah Bapak ingin saya bacakan seluruh poin keputusannya atau dikirimkan ke WhatsApp?`,
             { nextStage: "awaiting_notulen_followup" }
@@ -1683,6 +1673,55 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
           { nextStage: "active_session" }
         );
         return;
+      }
+
+      // 4b. JIKA ADA API KEY AI (GEMINI / DAHONO / OPENAI / GROQ / ANTHROPIC),
+      // PRIORITASKAN LLM DENGAN SELURUH KONTEKS SISTEM SEBAGAI OTAK UTAMA PENALARAN!
+      const hasAiKey =
+        Boolean(settingsRef.current.aiApiKey.trim()) ||
+        (settingsRef.current.aiProvider === "custom" &&
+          (settingsRef.current.aiAuthScheme === "none" ||
+            Boolean(settingsRef.current.aiApiKey.trim())) &&
+          Boolean(settingsRef.current.aiBaseUrl.trim()));
+
+      if (hasAiKey) {
+        const witaDate = getWitaDate();
+        const witaTimeStr = `${String(witaDate.getHours()).padStart(2, "0")}:${String(
+          witaDate.getMinutes()
+        ).padStart(2, "0")} WITA`;
+
+        const aiResult = await generateContextualReplyWithAi(
+          cmd,
+          historyRef.current,
+          activeNotulen,
+          settingsRef.current,
+          {
+            todayIso: TODAY_ISO,
+            witaTimeStr,
+            agendas: agendasRef.current,
+            notulenList: notulenRef.current,
+            tugasList: tugasRef.current,
+            activeNotulen,
+          }
+        );
+
+        if (aiResult.reply) {
+          speakWithTiara(aiResult.reply, {
+            nextStage: activeNotulen ? "awaiting_notulen_followup" : "active_session",
+            keepSessionAlive: true,
+          });
+          return;
+        }
+
+        if (aiResult.error) {
+          const providerName =
+            settingsRef.current.aiProvider === "custom"
+              ? settingsRef.current.aiCustomName || "Custom AI"
+              : settingsRef.current.aiProvider.toUpperCase();
+          toast.error(
+            `Koneksi ${providerName} (${aiResult.error}). Menjawab dengan Engine Lokal Tiara.`
+          );
+        }
       }
 
       // 5. TANYA JADWAL / AGENDA (Hari ini, Besok, Lusa, Hari Tertentu misal Sabtu/Jumat, atau Pekan Ini)
@@ -1778,21 +1817,9 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // 8. JIKA ADA API KEY AI (GEMINI / OPENAI / CLAUDE / GROQ), JAWAB KONTEKSTUAL DENGAN LLM!
-      const aiReply = await generateContextualReplyWithAi(
-        cmd,
-        historyRef.current,
-        activeNotulen,
-        settingsRef.current
-      );
-      if (aiReply) {
-        speakWithTiara(aiReply, { keepSessionAlive: true });
-        return;
-      }
-
-      // 9. FALLBACK LOKAL KONTEKSTUAL
+      // 8. FALLBACK LOKAL KONTEKSTUAL
       speakWithTiara(
-        "Siap Pak Dirut. Bapak dapat meminta saya mencarikan notulen berdasarkan tanggal atau topik, membacakan ringkasan beserta poin keputusannya, menanyakan jadwal, atau mencatat agenda baru.",
+        "Siap Pak Dirut. Bapak dapat meminta saya mencarikan notulen berdasarkan tanggal atau topik, membacakan ringkasan beserta poin keputusannya, menanyakan jadwal kegiatan, atau mencatat agenda baru.",
         { keepSessionAlive: true }
       );
     },

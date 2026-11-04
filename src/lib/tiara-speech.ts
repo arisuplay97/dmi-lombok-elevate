@@ -173,14 +173,24 @@ let isFetchingCloudTts = false;
 
 // Shared Audio element yang di-unlock pada gesture pengguna pertama (diperlukan untuk iOS Safari / PWA WebKit)
 let sharedUnlockedAudio: HTMLAudioElement | null = null;
+const SILENT_AUDIO_WAV =
+  "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
 
 export function warmUpAudioPlayback(): void {
   if (typeof window === "undefined") return;
   try {
-    getAudioContext();
+    const ctx = getAudioContext();
+    if (ctx && ctx.state === "suspended") {
+      void ctx.resume().catch(() => {});
+    }
     if (!sharedUnlockedAudio) {
       sharedUnlockedAudio = new Audio();
       sharedUnlockedAudio.preload = "auto";
+    }
+    // Mainkan silent audio sekali pada interaksi user untuk membuka izin autoplay di iOS Safari / PWA WebKit
+    if (!sharedUnlockedAudio.src) {
+      sharedUnlockedAudio.src = SILENT_AUDIO_WAV;
+      void sharedUnlockedAudio.play().catch(() => {});
     }
   } catch {
     // ignore
@@ -191,9 +201,10 @@ if (typeof window !== "undefined") {
   const onUserInteraction = () => {
     warmUpAudioPlayback();
   };
-  window.addEventListener("pointerdown", onUserInteraction, { once: true, passive: true });
-  window.addEventListener("touchstart", onUserInteraction, { once: true, passive: true });
-  window.addEventListener("keydown", onUserInteraction, { once: true, passive: true });
+  window.addEventListener("pointerdown", onUserInteraction, { passive: true });
+  window.addEventListener("touchstart", onUserInteraction, { passive: true });
+  window.addEventListener("click", onUserInteraction, { passive: true });
+  window.addEventListener("keydown", onUserInteraction, { passive: true });
 }
 
 function cleanupCloudAudio(): void {
@@ -858,6 +869,9 @@ export function speakWithConfiguredProvider(
         // Jika iOS/Safari PWA memblokir karena gesture timing, coba putar via Web Audio API AudioBuffer
         const ctx = getAudioContext();
         if (ctx) {
+          if (ctx.state === "suspended") {
+            await ctx.resume().catch(() => {});
+          }
           const arrayBuf = await audioBlob.arrayBuffer();
           const audioBuffer = await ctx.decodeAudioData(arrayBuf);
           const source = ctx.createBufferSource();

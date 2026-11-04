@@ -1,4 +1,5 @@
 import type {
+  AgendaItem,
   AssistantSettings,
   ChatTurn,
   NotulenItem,
@@ -1051,36 +1052,106 @@ export async function callConfiguredLlm(
   throw new Error("Provider AI tidak dikenali");
 }
 
+export interface AssistantLlmContext {
+  todayIso?: string;
+  witaTimeStr?: string;
+  agendas?: AgendaItem[];
+  notulenList?: NotulenItem[];
+  tugasList?: TugasItem[];
+  activeNotulen?: NotulenItem | null;
+}
+
 export async function generateContextualReplyWithAi(
   userSpeech: string,
   history: ChatTurn[],
   focusedNotulen: NotulenItem | null,
-  settings: AssistantSettings
-): Promise<string | null> {
+  settings: AssistantSettings,
+  ctx?: AssistantLlmContext
+): Promise<{ reply: string | null; error?: string }> {
   const canCall =
     Boolean(settings.aiApiKey.trim()) ||
     (settings.aiProvider === "custom" &&
       settings.aiAuthScheme === "none" &&
       Boolean(settings.aiBaseUrl.trim()));
 
-  if (!canCall) return null;
+  if (!canCall) return { reply: null };
   try {
     const recentChat = history
       .slice(-6)
       .map((h) => `${h.role === "user" ? "Pak Dirut" : "Tiara"}: ${h.text}`)
       .join("\n");
 
-    const contextBlock = focusedNotulen
-      ? `Notulen yang sedang dibuka saat ini:\nJudul: ${focusedNotulen.judul} (${focusedNotulen.tanggal})\nRingkasan: ${focusedNotulen.ringkasan}\nKeputusan: ${focusedNotulen.keputusan.join("; ")}`
-      : "Belum ada notulen spesifik yang dibuka.";
+    const todayStr = ctx?.todayIso || "2026-11-04";
+    const witaStr = ctx?.witaTimeStr || "WITA";
 
-    const systemPrompt =
-      "Kamu adalah Tiara, Asisten Virtual Direktur Utama Perumdam Tirta Ardhia Rinjani (PDAM Lombok Tengah). Jawab dengan sopan, ringkas (maksimal 3 kalimat agar nyaman diucapkan suara TTS), berbahasa Indonesia formal eksekutif, dan nyambung dengan percakapan sebelumnya.";
+    const agendasBlock = ctx?.agendas?.length
+      ? ctx.agendas
+          .map(
+            (a) =>
+              `- Tanggal ${a.tanggal}: Pukul ${a.mulai}–${a.selesai} WITA | ${a.judul} di ${a.lokasi} | Jenis: ${a.jenis} | Status: ${a.selesaiAcara ? "Sudah selesai" : "Belum berlangsung"}`
+          )
+          .join("\n")
+      : "Tidak ada agenda yang tersimpan.";
 
-    const userPrompt = `${contextBlock}\n\nRiwayat percakapan terakhir:\n${recentChat}\n\nUcapan terbaru Pak Dirut: "${userSpeech}"`;
+    const activeItem = ctx?.activeNotulen || focusedNotulen;
+    const activeNotulenBlock = activeItem
+      ? `Notulen yang sedang aktif/dibuka saat ini:\n- Judul: ${activeItem.judul} (Tanggal: ${activeItem.tanggal})\n- Ringkasan: ${activeItem.ringkasan}\n- Poin Keputusan: ${activeItem.keputusan.join("; ")}\n- Peserta: ${activeItem.peserta || "Sekretariat Direksi"}`
+      : "Belum ada notulen spesifik yang sedang aktif.";
 
-    return await callConfiguredLlm(systemPrompt, userPrompt, settings);
-  } catch {
-    return null;
+    const notulensBlock = ctx?.notulenList?.length
+      ? ctx.notulenList
+          .slice(0, 8)
+          .map(
+            (n) =>
+              `- ID ${n.id}: "${n.judul}" (${n.tanggal}) | Inti: ${n.ringkasan} | Keputusan: ${n.keputusan.slice(0, 2).join("; ")}`
+          )
+          .join("\n")
+      : "Tidak ada arsip notulen.";
+
+    const tugasBlock = ctx?.tugasList?.length
+      ? ctx.tugasList
+          .filter((t) => !t.selesai)
+          .slice(0, 10)
+          .map(
+            (t) =>
+              `- ${t.judul} (PJ: ${t.pj}, Tenggat: ${t.tenggat}${t.segera ? " [Segera]" : ""})`
+          )
+          .join("\n")
+      : "Semua tugas telah selesai.";
+
+    const systemPrompt = `Kamu adalah Tiara, Asisten Virtual Resmi Direktur Utama Perumdam Tirta Ardhia Rinjani (PDAM Kabupaten Lombok Tengah).
+Tugasmu adalah membantu Direktur Utama (Pak Dirut) dengan informasi agenda kegiatan, arsip notulen rapat, dan tindak lanjut tugas.
+
+KONTEKS SISTEM PDAM LOMBOK TENGAH:
+- Hari & Tanggal Acuan: Rabu, 4 November 2026 (Format ISO: ${todayStr})
+- Waktu Lokal: ${witaStr}
+- Pimpinan: ${settings.namaDirut || "Pak Dirut"} (Direktur Utama)
+
+DATA AGENDA KEGIATAN RESMI:
+${agendasBlock}
+
+DATA ARSIP NOTULEN RAPAT:
+${notulensBlock}
+
+${activeNotulenBlock}
+
+DAFTAR TUGAS TERBUKA:
+${tugasBlock}
+
+PANDUAN MENJAWAB:
+1. Jawab secara ringkas, to the point, dan sopan eksekutif (maksimal 2–3 kalimat agar nyaman didengarkan via suara TTS).
+2. Jika Pak Dirut menanyakan jadwal/agenda (misal hari ini, besok, lusa, hari tertentu seperti Sabtu/Jumat, atau pekan ini), periksa DATA AGENDA KEGIATAN di atas dengan cermat dan hitung hari dari acuan Rabu, 4 November 2026.
+3. Jika Pak Dirut menanyakan inti notulen atau keputusan rapat, jelaskan secara langsung dan tawarkan tindak lanjut.
+4. Gunakan Bahasa Indonesia formal eksekutif yang ramah dan lugas.`;
+
+    const userPrompt = `Riwayat percakapan sebelumnya:\n${recentChat || "(Awal percakapan)"}\n\nUcapan terbaru Pak Dirut: "${userSpeech}"`;
+
+    const reply = await callConfiguredLlm(systemPrompt, userPrompt, settings);
+    return { reply };
+  } catch (err: unknown) {
+    const errorMsg =
+      err instanceof Error ? err.message : "Gagal menghubungi AI";
+    console.warn("AI LLM call error:", errorMsg);
+    return { reply: null, error: errorMsg };
   }
 }
