@@ -23,6 +23,7 @@ export function FloatingTiaraWidget() {
     candidateNotulens,
     focusedNotulenId,
     activateAndGreetTiara,
+    turnOffAssistantMic,
     sendCommandToTiara,
     selectDisambiguatedNotulen,
     readNotulenAloud,
@@ -347,14 +348,24 @@ export function FloatingTiaraWidget() {
       >
         <button
           type="button"
-          onClick={activateAndGreetTiara}
-          title="Bicara dengan suara"
+          onClick={() => {
+            if (isListening || isSpeaking || assistantEnabled) {
+              turnOffAssistantMic();
+            } else {
+              activateAndGreetTiara();
+            }
+          }}
+          title={
+            isListening || isSpeaking || assistantEnabled
+              ? "Matikan mikrofon Tiara"
+              : "Bicara dengan suara"
+          }
           style={{
             width: 36,
             height: 36,
             borderRadius: "50%",
             border: 0,
-            background: "#6B7BFF",
+            background: isListening || isSpeaking ? "#FF6B4A" : "#6B7BFF",
             color: "#fff",
             display: "inline-flex",
             alignItems: "center",

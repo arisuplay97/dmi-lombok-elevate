@@ -96,6 +96,7 @@ function DashboardBerandaPage() {
     lastAssistantReply,
     reminder,
     activateAndGreetTiara,
+    turnOffAssistantMic,
     sendCommandToTiara,
     selectDisambiguatedNotulen,
     pauseOrResumeSpeech,
@@ -470,8 +471,18 @@ function DashboardBerandaPage() {
               color: "#fff",
               padding: 14,
             }}
-            onClick={activateAndGreetTiara}
-            title='Aktifkan mikrofon & panggil "Hey Tiara / Halo Tiara"'
+            onClick={() => {
+              if (assistantEnabled || isListening || isSpeaking) {
+                turnOffAssistantMic();
+              } else {
+                activateAndGreetTiara();
+              }
+            }}
+            title={
+              assistantEnabled || isListening || isSpeaking
+                ? "Matikan mikrofon Tiara"
+                : 'Aktifkan mikrofon & panggil "Hey Tiara / Halo Tiara"'
+            }
           >
             <svg
               width="18"

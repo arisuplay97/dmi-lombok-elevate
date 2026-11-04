@@ -308,6 +308,7 @@ export function MobilePwaApp({
     setVoiceDraft,
     setSearchModalOpen,
     activateAndGreetTiara,
+    turnOffAssistantMic,
     toggleWakeWordListening,
     simulateWakeWord,
     sendCommandToTiara,
@@ -971,14 +972,14 @@ export function MobilePwaApp({
                     className={`btn ${assistantEnabled ? "g" : "t"}`}
                     style={{ flex: 1 }}
                     onClick={() => {
-                      if (assistantEnabled) {
-                        toggleWakeWordListening();
+                      if (assistantEnabled || isListening || isSpeaking) {
+                        turnOffAssistantMic();
                       } else {
                         activateAndGreetTiara();
                       }
                     }}
                   >
-                    {assistantEnabled
+                    {assistantEnabled || isListening || isSpeaking
                       ? "Matikan suara asisten"
                       : "Aktifkan asisten"}
                   </button>
@@ -1821,11 +1822,11 @@ export function MobilePwaApp({
         </button>
         <button
           type="button"
-          className={`mic ${isSpeaking || awaitingCommand ? "live" : ""}`}
+          className={`mic ${isSpeaking || isListening || awaitingCommand ? "live" : ""}`}
           aria-label="Perintah suara Tiara"
           onClick={() => {
             setSheet({ kind: "voice" });
-            if (!assistantEnabled) {
+            if (!assistantEnabled && !isListening && !isSpeaking) {
               activateAndGreetTiara();
             }
           }}
@@ -1884,12 +1885,11 @@ export function MobilePwaApp({
                   setSheet({ kind: "none" });
                 }}
                 onToggleMic={() => {
-                  if (isSpeaking) {
-                    stopTiaraSpeakingOnly();
-                  } else if (!assistantEnabled) {
-                    activateAndGreetTiara();
+                  const isMicActive = isListening || isSpeaking || assistantEnabled;
+                  if (isMicActive) {
+                    turnOffAssistantMic();
                   } else {
-                    simulateWakeWord();
+                    activateAndGreetTiara();
                   }
                 }}
                 onSendText={(txt) => sendCommandToTiara(txt)}
@@ -2236,17 +2236,17 @@ function MobileVoiceSheet({
             <button
               type="button"
               className={`rbtn ${isListening || isSpeaking ? "live" : ""}`}
-              aria-label="Rekam suara"
+              aria-label={isListening || isSpeaking ? "Matikan mikrofon" : "Rekam suara"}
               onClick={onToggleMic}
             >
               <PwaIcon name={isSpeaking ? "stop" : "mic"} />
             </button>
             <p className="hint">
               {isSpeaking
-                ? "Tiara sedang berbicara (mikrofon diredam agar tidak gema)..."
-                : assistantEnabled && isListening
-                ? "Mendengarkan... Ucapkan perintah atau pertanyaan lanjutan."
-                : "Ketuk mikrofon lalu ucapkan perintah Bapak."}
+                ? "Tiara sedang berbicara... Ketuk mic untuk langsung berhenti."
+                : isListening || assistantEnabled
+                ? "Mendengarkan... Ketuk mic untuk mematikan."
+                : "Mikrofon mati. Ketuk mic untuk menyalakan Tiara."}
             </p>
             {(isListening || isSpeaking) && (
               <div className="wv sp lg">

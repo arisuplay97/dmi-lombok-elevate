@@ -121,6 +121,21 @@ const STOP_WORDS = new Set([
   "saja",
   "semua",
   "daftar",
+  "tersebut",
+  "tadi",
+  "barusan",
+  "inti",
+  "intinya",
+  "ringkasan",
+  "ringkasannya",
+  "pokok",
+  "pokoknya",
+  "kesimpulan",
+  "kesimpulannya",
+  "isi",
+  "isinya",
+  "peserta",
+  "pesertanya",
 ]);
 
 function escapeRegExp(str: string): string {

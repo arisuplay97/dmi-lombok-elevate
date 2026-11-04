@@ -153,6 +153,7 @@ interface PdamStoreValue {
   // Assistant & Multi-Turn Actions
   activateAndGreetTiara: () => void;
   toggleWakeWordListening: () => void;
+  turnOffAssistantMic: () => void;
   simulateWakeWord: (customCommand?: string) => void;
   sendCommandToTiara: (commandText: string) => void;
   selectDisambiguatedNotulen: (notulenId: number, forceReadNow?: boolean) => void;
@@ -619,6 +620,8 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
   dialogStageRef.current = dialogStage;
   const focusedNotulenIdRef = useRef<number | null>(focusedNotulenId);
   focusedNotulenIdRef.current = focusedNotulenId;
+  const selectedNotulenIdRef = useRef<number>(selectedNotulenId);
+  selectedNotulenIdRef.current = selectedNotulenId;
   const candidateNotulensRef = useRef<NotulenItem[]>(candidateNotulens);
   candidateNotulensRef.current = candidateNotulens;
   const historyRef = useRef<ChatTurn[]>(conversationHistory);
@@ -1320,15 +1323,82 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // 2. TINDAK LANJUT KONTEKSTUAL PADA NOTULEN YANG SEDANG DIBUKA (Melanjutkan Percakapan!)
-      const activeNotulen = focusedNotulenIdRef.current
-        ? notulenRef.current.find((n) => n.id === focusedNotulenIdRef.current) ??
-          null
+      // 2. TINDAK LANJUT KONTEKSTUAL PADA NOTULEN YANG SEDANG DIBUKA / DIBICARAKAN (Melanjutkan Percakapan!)
+      const activeNotulenId =
+        focusedNotulenIdRef.current ?? selectedNotulenIdRef.current ?? null;
+      const activeNotulen = activeNotulenId
+        ? notulenRef.current.find((n) => n.id === activeNotulenId) ?? null
         : null;
 
+      const hasDemonstrativeReference =
+        /\b(tersebut|tadi|barusan|notulen ini|rapat ini|notulen itu|rapat itu|yang tadi)\b/i.test(
+          lower
+        );
+      const isInNotulenFollowup =
+        dialogStageRef.current === "awaiting_notulen_followup";
+
       if (activeNotulen) {
-        // 2a. Minta bacakan poin keputusannya saja
-        if (/\b(poin|keputusan|keputusannya|hasil keputusan)\b/i.test(lower)) {
+        // 2a. Tanya inti, pokok pikiran, ringkasan, atau apa yang dibahas
+        if (
+          /\b(inti|intinya|ringkas|ringkasan|ringkasannya|pokok|kesimpulan|kesimpulannya|apa isinya|isi notulen|bahas apa|apa yang dibahas|tentang apa)\b/i.test(
+            lower
+          )
+        ) {
+          const decisionHighlight =
+            activeNotulen.keputusan.length > 0
+              ? ` Poin keputusan utamanya antara lain: ${activeNotulen.keputusan
+                  .slice(0, 2)
+                  .map((k, idx) => `${idx + 1}. ${k}`)
+                  .join("; ")}.`
+              : "";
+          speakWithTiara(
+            `Inti dari notulen ${activeNotulen.judul} (tanggal ${activeNotulen.tanggal}): ${activeNotulen.ringkasan}.${decisionHighlight} Apakah ingin saya kirimkan ke WhatsApp atau ada hal lain yang ingin Bapak tanyakan?`,
+            { nextStage: "awaiting_notulen_followup" }
+          );
+          return;
+        }
+
+        // 2b. Tanya peserta / siapa yang hadir / pimpinan
+        if (
+          /\b(peserta|pesertanya|siapa yang hadir|siapa saja yang hadir|siapa yang ikut|siapa saja pesertanya|yang datang|dihadiri|pimpinan|pemimpin)\b/i.test(
+            lower
+          )
+        ) {
+          const leaderInfo = activeNotulen.pimpinan
+            ? ` dipimpin oleh ${activeNotulen.pimpinan}`
+            : "";
+          const countInfo =
+            typeof activeNotulen.peserta === "number" && activeNotulen.peserta > 0
+              ? ` dan dihadiri sekitar ${activeNotulen.peserta} peserta`
+              : "";
+          speakWithTiara(
+            `Rapat ${activeNotulen.judul}${leaderInfo}${countInfo}. Apakah ada hal lain yang ingin Bapak tanyakan terkait rapat ini?`,
+            { nextStage: "awaiting_notulen_followup" }
+          );
+          return;
+        }
+
+        // 2c. Tanya waktu dan lokasi rapat
+        if (
+          /\b(kapan rapat|kapan pelaksanaannya|jam berapa rapat|pukul berapa rapat|di mana rapat|dimana rapat|tempat rapat|lokasi rapat)\b/i.test(
+            lower
+          )
+        ) {
+          const timeInfo = activeNotulen.jam ? ` pukul ${activeNotulen.jam} WITA` : "";
+          const locInfo = activeNotulen.lokasi ? ` di ${activeNotulen.lokasi}` : "";
+          speakWithTiara(
+            `Rapat ${activeNotulen.judul} dilaksanakan pada hari ${activeNotulen.tanggal}${timeInfo}${locInfo}.`,
+            { nextStage: "awaiting_notulen_followup" }
+          );
+          return;
+        }
+
+        // 2d. Minta bacakan poin keputusannya saja
+        if (
+          /\b(poin|keputusan|keputusannya|hasil keputusan|apa keputusannya|hasil rapat|hasilnya|yang diputuskan)\b/i.test(
+            lower
+          )
+        ) {
           const script = buildNotulenReadoutText(
             activeNotulen,
             tugasRef.current,
@@ -1338,9 +1408,9 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // 2b. Minta bacakan tugas / tindak lanjut / progres dari rapat tersebut
+        // 2e. Minta bacakan tugas / tindak lanjut / progres dari rapat tersebut
         if (
-          /\b(tugasnya|tindak lanjut|penanggung jawab|siapa yang bertugas|progres)\b/i.test(
+          /\b(tugasnya|tindak lanjut|penanggung jawab|pj|siapa yang bertugas|progres|deadline|jatuh tempo|tenggat)\b/i.test(
             lower
           ) &&
           !/\bsemua tugas\b/i.test(lower)
@@ -1354,8 +1424,13 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // 2c. Kirim notulen yang sedang dibahas ke WhatsApp
-        if (/\b(kirim|kirimkan|bagikan|share)\b.*\b(wa|whatsapp)\b/i.test(lower)) {
+        // 2f. Kirim notulen yang sedang dibahas ke WhatsApp
+        if (
+          /\b(kirim|kirimkan|bagikan|share|japri)\b.*\b(wa|whatsapp)\b/i.test(
+            lower
+          ) ||
+          /\b(kirim ke wa|kirim wa)\b/i.test(lower)
+        ) {
           sendNotulenSummaryToWa(activeNotulen.id);
           speakWithTiara(
             `Siap Pak Dirut, ringkasan dan poin keputusan ${activeNotulen.judul} sudah saya kirimkan ke WhatsApp Bapak dan Sekretariat. Ada lagi yang ingin Bapak tindak lanjuti?`,
@@ -1364,14 +1439,14 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // 2d. Jawaban konfirmasi "Iya / Boleh / Bacakan" setelah Tiara menawarkan baca notulen
+        // 2g. Jawaban konfirmasi "Iya / Boleh / Bacakan" setelah Tiara menawarkan baca notulen
         const isDirectReadRequest =
-          /\b(bacakan|baca hasilnya|baca notulen|baca semuanya|bacakan semuanya|tolong baca)\b/i.test(
+          /\b(bacakan|baca hasilnya|baca notulen|baca semuanya|bacakan semuanya|tolong baca|bacakan lagi)\b/i.test(
             lower
           ) && !/\b(carikan|cari|tanggal|bulan)\b/i.test(lower);
 
         const isShortAffirmative =
-          dialogStageRef.current === "awaiting_notulen_followup" &&
+          isInNotulenFollowup &&
           /^(?:iya|ya|boleh|silakan|oke|baik|lanjut|gas|tolong|iya bacakan|ya bacakan)\b/i.test(
             lower
           );
@@ -1386,16 +1461,36 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // 2e. Jika menolak ditawarkan baca ("tidak usah" / "cukup tampilkan saja")
+        // 2h. Jika menolak ditawarkan baca ("tidak usah" / "cukup tampilkan saja" / "terima kasih")
         if (
-          dialogStageRef.current === "awaiting_notulen_followup" &&
-          /^(?:tidak|tidak usah|enggak|jangan dulu|cukup tampilkan)\b/i.test(
+          isInNotulenFollowup &&
+          /^(?:tidak|tidak usah|enggak|nggak|jangan dulu|cukup|sudah cukup|terima kasih|makasih)\b/i.test(
             lower
           )
         ) {
           speakWithTiara(
-            "Baik Pak Dirut, notulen sudah terbuka di layar. Beri tahu saya jika ingin membacakan poin keputusan atau mencari notulen lain.",
+            "Baik Pak Dirut, notulen tetap terbuka di layar. Beri tahu saya jika ingin membacakan poin keputusan atau mencari notulen lain.",
             { nextStage: "active_session" }
+          );
+          return;
+        }
+
+        // 2i. Jika ada kata rujukan demonstratif ("notulen tersebut", "rapat tadi") atau sedang dalam follow-up
+        if (hasDemonstrativeReference || isInNotulenFollowup) {
+          const aiReply = await generateContextualReplyWithAi(
+            cmd,
+            historyRef.current,
+            activeNotulen,
+            settingsRef.current
+          );
+          if (aiReply) {
+            speakWithTiara(aiReply, { nextStage: "awaiting_notulen_followup" });
+            return;
+          }
+
+          speakWithTiara(
+            `Mengenai notulen ${activeNotulen.judul}: ${activeNotulen.ringkasan}. Apakah Bapak ingin saya bacakan seluruh poin keputusannya atau dikirimkan ke WhatsApp?`,
+            { nextStage: "awaiting_notulen_followup" }
           );
           return;
         }
@@ -1403,11 +1498,16 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
 
       // 3. PENCARIAN & NAVIGASI NOTULEN VIA SUARA (Tanggal / Bulan / Topik + Disambiguasi >1)
       const isAskingNotulenSearch =
-        /\b(notulen|notulensi|hasil rapat|transkrip)\b/i.test(lower) ||
-        (/\b(carikan|cari|bukakan|buka|tampilkan|munculkan)\b/i.test(lower) &&
-          /\b(rapat|koordinasi|evaluasi|anggaran|pipa|pelayanan|teknik|direksi|november|oktober|bulan|tanggal)\b/i.test(
-            lower
-          ));
+        ((!hasDemonstrativeReference && !isInNotulenFollowup) ||
+          /\b(cari|carikan|notulen lain|lainnya)\b/i.test(lower)) &&
+        ((/\b(carikan|cari|bukakan|buka|tampilkan|munculkan|lihat)\b/i.test(
+          lower
+        ) &&
+          /\b(notulen|notulensi|hasil rapat|transkrip|rapat)\b/i.test(lower)) ||
+          (/\b(notulen|notulensi)\b/i.test(lower) &&
+            /\b(tanggal|tgl|bulan|januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember|terbaru|terakhir|kemarin|hari ini)\b/i.test(
+              lower
+            )));
 
       if (isAskingNotulenSearch) {
         const searchRes = searchNotulenSmart(
@@ -1747,6 +1847,31 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(sessionTimerRef.current);
     }
   }, []);
+
+  const turnOffAssistantMic = useCallback(() => {
+    speechSessionIdRef.current += 1;
+    stopSpeaking();
+    isSpeakingRef.current = false;
+    setIsSpeaking(false);
+    setIsSpeechPaused(false);
+    assistantEnabledRef.current = false;
+    setAssistantEnabled(false);
+    setIsListening(false);
+    setDialogStage("idle");
+    dialogStageRef.current = "idle";
+    setCandidateNotulens([]);
+    candidateNotulensRef.current = [];
+    if (sessionTimerRef.current) {
+      window.clearTimeout(sessionTimerRef.current);
+    }
+    if (micResumeTimerRef.current) {
+      window.clearTimeout(micResumeTimerRef.current);
+    }
+    if (speakStartTimerRef.current) {
+      window.clearTimeout(speakStartTimerRef.current);
+    }
+    stopRecognitionSafe();
+  }, [stopRecognitionSafe]);
 
   const toggleWakeWordListening = useCallback(() => {
     if (assistantEnabledRef.current) {
@@ -2598,6 +2723,7 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
     setSearchModalOpen,
     activateAndGreetTiara,
     toggleWakeWordListening,
+    turnOffAssistantMic,
     simulateWakeWord,
     sendCommandToTiara,
     selectDisambiguatedNotulen,
