@@ -3041,8 +3041,10 @@ function MobileUploadAudioSheet({
     judul: string;
     fileName: string;
     durasiMenit: number;
+    file?: File;
   }) => void;
 }) {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
   const [judul, setJudul] = useState("");
   const [durasiMenit, setDurasiMenit] = useState(45);
@@ -3061,17 +3063,28 @@ function MobileUploadAudioSheet({
         <b style={{ color: "var(--ink)" }}>
           {fileName || "Pilih file rekaman audio"}
         </b>
-        <span>Format mp3, m4a, atau wav</span>
+        <span>
+          {selectedFile
+            ? `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB · File siap ditranskrip AI`
+            : "Format mp3, m4a, wav, atau rekaman suara HP"}
+        </span>
         <input
           type="file"
-          accept=".mp3,.m4a,.wav,audio/*"
+          accept=".mp3,.m4a,.wav,.ogg,.aac,audio/*"
           hidden
           onChange={(e) => {
             const f = e.target.files?.[0];
             if (f) {
+              setSelectedFile(f);
               setFileName(f.name);
-              if (!judul) setJudul(f.name.replace(/\.[^.]+$/, ""));
-              setDurasiMenit(Math.max(15, Math.round(f.size / 1048576) * 12));
+              if (!judul) {
+                const clean = f.name
+                  .replace(/\.[^.]+$/, "")
+                  .replace(/[-_]+/g, " ");
+                setJudul(clean);
+              }
+              const approx = Math.max(15, Math.round(f.size / (1024 * 1024) * 1.5) || 45);
+              setDurasiMenit(approx);
             }
           }}
         />
@@ -3099,6 +3112,7 @@ function MobileUploadAudioSheet({
             judul: judul.trim() || fileName,
             fileName: fileName || "rekaman-rapat.m4a",
             durasiMenit,
+            file: selectedFile || undefined,
           });
         }}
       >
@@ -3778,12 +3792,18 @@ function MobileSettingsSheet({
         </div>
 
         <div className="fld">
-          <span>API Key AI</span>
+          <span>API Key AI ({settings.aiProvider === "gemini" ? "Google Gemini" : settings.aiProvider.toUpperCase()})</span>
           <input
             type="password"
             value={settings.aiApiKey}
             onChange={(e) => onUpdateSettings({ aiApiKey: e.target.value })}
-            placeholder="Kosongkan untuk engine lokal cerdas"
+            placeholder={
+              settings.aiProvider === "gemini"
+                ? "Format AIza... atau AQ..."
+                : settings.aiProvider === "groq"
+                ? "gsk_..."
+                : "Tempel API Key..."
+            }
           />
         </div>
 

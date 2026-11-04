@@ -82,7 +82,7 @@ export function TabAiSettings({
   const hasInvalidGoogleKey =
     isOfficialGoogle &&
     settings.aiApiKey.trim().length > 0 &&
-    !settings.aiApiKey.trim().startsWith("AIza");
+    settings.aiApiKey.trim().length < 15;
 
   const isGroq = settings.aiProvider === "groq";
 
@@ -536,7 +536,7 @@ export function TabAiSettings({
                   isGroq
                     ? "gsk_..."
                     : settings.aiProvider === "gemini"
-                    ? "AIza..."
+                    ? "AIza... atau AQ..."
                     : "Tempel API Key di sini..."
                 }
                 style={{
@@ -557,7 +557,7 @@ export function TabAiSettings({
 
             {hasInvalidGoogleKey && (
               <div style={{ color: "#EF4444", fontSize: 11, marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
-                <AlertCircle size={12} /> Format API Key Gemini resmi harus diawali "AIza".
+                <AlertCircle size={12} /> Panjang API Key Gemini minimal 15 karakter.
               </div>
             )}
           </div>

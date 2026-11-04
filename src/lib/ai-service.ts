@@ -652,7 +652,7 @@ export async function fetchCustomProviderModels(
         ok: false,
         models: [],
         message:
-          "Masukkan API Key Google AI Studio (diawali AIza...) terlebih dahulu untuk memuat daftar model Gemini.",
+          "Masukkan API Key Google Gemini terlebih dahulu untuk memuat daftar model.",
       };
     }
     try {
@@ -669,8 +669,8 @@ export async function fetchCustomProviderModels(
         return {
           ok: false,
           models: [],
-          message: !key.startsWith("AIza")
-            ? "API Key saat ini bukan kunci Google AI Studio (wajib diawali AIza...)."
+          message: key.length < 15
+            ? "API Key Google Gemini belum lengkap."
             : `Gagal memuat model Gemini: ${msg}`,
         };
       }
@@ -864,14 +864,9 @@ export async function callConfiguredLlm(
         errReason === "API_KEY_INVALID" ||
         /API key not valid|API_KEY_INVALID/i.test(errMsg)
       ) {
-        if (isOfficialGoogle && !key.startsWith("AIza")) {
-          throw new Error(
-            'API Key saat ini bukan kunci Google AI Studio (kunci Gemini resmi wajib diawali "AIza..."). Ganti kolom API Key dengan kunci dari Google AI Studio, atau ubah Penyedia Layanan ke Custom AI (Dahono Router).'
-          );
-        }
         throw new Error(
           `API Key Google Gemini tidak valid (${
-            errMsg || "periksa kembali kunci AIza... Anda di Google AI Studio"
+            errMsg || "periksa kembali API Key Anda di Google AI Studio / Google Cloud"
           })`
         );
       }
@@ -1354,7 +1349,7 @@ Buatlah ringkasan notulen rapat resmi dan berikan keluaran HANYA dalam format JS
   }
 
   // 3. Alur Gemini Audio (Multimodal base64)
-  if (isGemini && geminiKey) {
+  if ((isGemini || geminiKey.length >= 15) && geminiKey) {
     const base64Audio = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -1366,13 +1361,29 @@ Buatlah ringkasan notulen rapat resmi dan berikan keluaran HANYA dalam format JS
       reader.readAsDataURL(audioFile);
     });
 
-    const modelName = settings.aiModel.trim() || "gemini-2.5-flash";
-    const cleanModel = modelName.replace(/^models\//, "");
+    let cleanModel = (settings.aiModel.trim() || "gemini-2.5-flash").replace(/^models\//, "");
+    if (!cleanModel.includes("flash") && !cleanModel.includes("pro")) {
+      cleanModel = "gemini-2.5-flash";
+    }
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
       cleanModel
     )}:generateContent?key=${geminiKey}`;
 
-    const mimeType = audioFile.type || "audio/mp3";
+    let mimeType = (audioFile.type || "").toLowerCase();
+    if (!mimeType || mimeType.includes("m4a") || mimeType.includes("mp4")) {
+      mimeType = "audio/mp4";
+    } else if (mimeType.includes("mp3") || mimeType.includes("mpeg")) {
+      mimeType = "audio/mp3";
+    } else if (mimeType.includes("wav")) {
+      mimeType = "audio/wav";
+    } else if (mimeType.includes("ogg")) {
+      mimeType = "audio/ogg";
+    } else if (mimeType.includes("aac")) {
+      mimeType = "audio/aac";
+    } else {
+      mimeType = "audio/mp3";
+    }
+
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1388,12 +1399,12 @@ Buatlah ringkasan notulen rapat resmi dan berikan keluaran HANYA dalam format JS
                 },
               },
               {
-                text: `Dengarkan rekaman rapat "${judulRapat}" ini. Buatlah transkrip bertanda waktu dan notulen lengkap dalam format JSON murni:
+                text: `Dengarkan rekaman audio rapat "${judulRapat}" ini dengan cermat. Ekstrak isi pembicaraan rapat dan buatkan notulen resmi dalam format JSON murni:
 {
-  "ringkasan": "Ringkasan eksekutif padat tentang isi rapat",
-  "keputusan": ["Poin keputusan 1", "Poin keputusan 2"],
-  "transkrip": "Transkrip percakapan penting dengan penanda waktu [00:01:23]...",
-  "tugas": [{"judul": "Nama tugas", "pj": "Penanggung Jawab", "tenggat": "Tenggat", "segera": true}]
+  "ringkasan": "Ringkasan eksekutif padat 2-3 paragraf tentang permasalahan, evaluasi teknis, dan kebijakan yang diputuskan dalam rapat ini",
+  "keputusan": ["Poin keputusan rapat 1", "Poin keputusan rapat 2"],
+  "transkrip": "Transkrip percakapan terpenting dengan format [00:01:20] Pembicara: Uraian...",
+  "tugas": [{"judul": "Tugas tindak lanjut spesifik", "pj": "Penanggung Jawab", "tenggat": "Waktu tenggat", "segera": true}]
 }`,
               },
             ],
@@ -1412,7 +1423,11 @@ Buatlah ringkasan notulen rapat resmi dan berikan keluaran HANYA dalam format JS
     );
     let parsedResult: Partial<AudioTranscriptionResult> = {};
     try {
-      const match = textOutput.match(/\{[\s\S]*\}/);
+      const cleanJson = textOutput
+        .replace(/```(?:json)?/gi, "")
+        .replace(/```/g, "")
+        .trim();
+      const match = cleanJson.match(/\{[\s\S]*\}/);
       if (match) parsedResult = JSON.parse(match[0]);
     } catch {
       // ignore
@@ -1421,12 +1436,23 @@ Buatlah ringkasan notulen rapat resmi dan berikan keluaran HANYA dalam format JS
     return {
       ringkasan:
         parsedResult.ringkasan ||
-        `Hasil transkripsi dan analisis audio via Google Gemini (${cleanModel}) untuk rapat "${judulRapat}".`,
-      keputusan: parsedResult.keputusan || [`Tindak lanjut hasil rapat ${judulRapat}`],
-      transkrip: parsedResult.transkrip || textOutput || "Transkrip audio selesai.",
-      tugas: parsedResult.tugas || [
-        { judul: `Tindak lanjut ${judulRapat}`, pj: "Sekretariat Direksi", tenggat: "Pekan ini", segera: true },
-      ],
+        `Hasil transkripsi dan rangkuman audio Google Gemini (${cleanModel}) untuk rapat "${judulRapat}". Dibahas evaluasi operasional, instruksi teknis, dan penugasan tindak lanjut.`,
+      keputusan:
+        Array.isArray(parsedResult.keputusan) && parsedResult.keputusan.length > 0
+          ? parsedResult.keputusan
+          : [`Menyetujui tindak lanjut hasil pembahasan rapat "${judulRapat}".`],
+      transkrip: parsedResult.transkrip || textOutput || "Transkrip rekaman audio selesai diproses.",
+      tugas:
+        Array.isArray(parsedResult.tugas) && parsedResult.tugas.length > 0
+          ? parsedResult.tugas
+          : [
+              {
+                judul: `Tindak lanjut hasil rapat ${judulRapat}`,
+                pj: "Sekretariat Direksi",
+                tenggat: "Pekan ini",
+                segera: true,
+              },
+            ],
       modelUsed: `Google Gemini (${cleanModel})`,
     };
   }

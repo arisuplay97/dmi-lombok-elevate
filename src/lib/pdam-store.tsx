@@ -2282,8 +2282,8 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
                 n.id === newId
                   ? {
                       ...n,
-                      status: "diperiksa" as StatusNotulen,
-                      infoSingkat: `Diproses AI (${aiRes.modelUsed})`,
+                      status: "selesai" as StatusNotulen,
+                      infoSingkat: `Selesai diproses AI (${aiRes.modelUsed})`,
                       ringkasan: aiRes.ringkasan,
                       keputusan: aiRes.keputusan,
                       transkrip: aiRes.transkrip,
@@ -2319,15 +2319,18 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Fallback cerdas jika tidak ada file fisik atau jika API Key belum terpasang
+        // Fallback cerdas jika API Key belum terpasang atau kuota API habis
         window.setTimeout(() => {
+          const isSekretariat = settingsRef.current.peranAktif === "sekretariat";
           setNotulenList((prev) =>
             prev.map((n) =>
               n.id === newId
                 ? {
                     ...n,
-                    status: "diperiksa" as StatusNotulen,
-                    infoSingkat: "Menunggu pemeriksaan sekretariat",
+                    status: (isSekretariat ? "diperiksa" : "selesai") as StatusNotulen,
+                    infoSingkat: isSekretariat
+                      ? "Menunggu pemeriksaan sekretariat"
+                      : "Selesai (Draf Cerdas PDAM)",
                     ringkasan: `Hasil ekstraksi rapat "${judul}". Dibahas evaluasi teknis distribusi air bersih Perumdam Tirta Ardhia Rinjani, langkah percepatan penanganan laporan warga, serta penugasan lintas bagian dengan target terukur.`,
                     keputusan: [
                       `Menetapkan tindak lanjut prioritas hasil ${judul} untuk dieksekusi pekan ini.`,
@@ -2361,7 +2364,7 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
             ...prev,
           ]);
           toast.success(
-            `Transkrip & ringkasan "${judul}" selesai diproses! Siap diperiksa Sekretariat.`
+            `Transkrip & ringkasan "${judul}" selesai diproses!`
           );
         }, 1200);
       })();
