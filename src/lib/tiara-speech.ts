@@ -996,29 +996,43 @@ export function isLikelySpeakerEcho(
 }
 
 /**
- * Deteksi panggilan Wake Word "Hey Tiara" / "Halo Tiara"
+ * Deteksi panggilan Wake Word "Hey Tiara" / "Halo Tiara" dengan toleransi fonetik jarak jauh
  */
 export function parseWakeWord(rawTranscript: string): {
   isWakeWord: boolean;
   commandAfterWake: string;
 } {
   const cleaned = rawTranscript.trim();
-  const wakeRegex =
-    /\b(?:hey|hei|hai|halo|hallo|alo|he)\s+(?:tiara|tyara|tiyara|kiara|mutiara)\b/i;
-  const match = cleaned.match(wakeRegex);
-  if (match && match.index !== undefined) {
+  if (!cleaned) return { isWakeWord: false, commandAfterWake: "" };
+
+  // Pola nama Tiara dengan toleransi variasi fonetik saat suara terdengar dari jarak 1-3 meter
+  const NAME_PATTERN =
+    "(?:tiara|tyara|tiyara|ciara|tara|kiara|klara|mutiara|siara|piara)";
+
+  // 1. Prefix sapaan + Nama: "hey tiara", "halo tara", "oi ciara", "eh tiara", "tolong tiara", dsb.
+  const greetingWakeRegex = new RegExp(
+    `\\b(?:hey|hei|hai|halo|hallo|helo|alo|he|oi|oy|eh|oke|ok|tolong)\\s+${NAME_PATTERN}\\b`,
+    "i"
+  );
+  const matchGreeting = cleaned.match(greetingWakeRegex);
+  if (matchGreeting && matchGreeting.index !== undefined) {
     const after = cleaned
-      .slice(match.index + match[0].length)
+      .slice(matchGreeting.index + matchGreeting[0].length)
       .replace(/^[,.\s?!-]+/, "")
       .trim();
     return { isWakeWord: true, commandAfterWake: after };
   }
 
-  const directStart = cleaned.match(/^(?:tiara|tyara)\b[,.\s?!-]*(.*)$/i);
-  if (directStart) {
+  // 2. Langsung nama di awal kalimat: "Tiara apa jadwal hari ini", "Ciara tolong baca notulen"
+  const directStartRegex = new RegExp(
+    `^(?:(?:eh|oi|oy|oke|ok|tolong)\\s+)?${NAME_PATTERN}\\b[,.\\s?!-]*(.*)$`,
+    "i"
+  );
+  const matchDirect = cleaned.match(directStartRegex);
+  if (matchDirect) {
     return {
       isWakeWord: true,
-      commandAfterWake: (directStart[1] || "").trim(),
+      commandAfterWake: (matchDirect[1] || "").replace(/^[,.\s?!-]+/, "").trim(),
     };
   }
 
@@ -1234,4 +1248,51 @@ export function createSpeechRecognition(): BrowserSpeechRecognition | null {
   const Ctor = w.SpeechRecognition || w.webkitSpeechRecognition;
   if (!Ctor) return null;
   return new Ctor();
+}
+
+let activeFarFieldStream: MediaStream | null = null;
+
+/**
+ * Mengaktifkan Automatic Gain Control (AGC) dan far-field audio capture pada level browser/driver
+ * agar mikrofon sensitif menangkap suara dari jarak 1 - 3 meter tanpa harus menempelkan mulut ke mic.
+ */
+export async function enableFarFieldMicBoost(): Promise<MediaStream | null> {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+    return null;
+  }
+  if (
+    activeFarFieldStream &&
+    activeFarFieldStream.getAudioTracks().some((t) => t.readyState === "live")
+  ) {
+    return activeFarFieldStream;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: false, // JANGAN matikan/redam suara pelan/jauh
+        autoGainControl: true,   // Aktifkan AGC agar suara dari kejauhan diamplifikasi secara dinamis
+        channelCount: 1,
+      },
+    });
+    activeFarFieldStream = stream;
+    return stream;
+  } catch (err) {
+    console.warn(
+      "Far-field mic boost stream tidak dapat diaktifkan, fallback ke default speech:",
+      err
+    );
+    return null;
+  }
+}
+
+export function releaseFarFieldMicBoost(): void {
+  if (activeFarFieldStream) {
+    try {
+      activeFarFieldStream.getTracks().forEach((t) => t.stop());
+    } catch {
+      // noop
+    }
+    activeFarFieldStream = null;
+  }
 }

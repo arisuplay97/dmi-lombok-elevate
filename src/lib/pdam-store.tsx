@@ -29,6 +29,7 @@ import {
 } from "@/lib/ai-service";
 import {
   createSpeechRecognition,
+  enableFarFieldMicBoost,
   extractAgendaFromSpeech,
   isBrowserCurrentlySpeaking,
   isLikelySpeakerEcho,
@@ -36,6 +37,7 @@ import {
   parseWakeWord,
   pauseSpeaking,
   playChime,
+  releaseFarFieldMicBoost,
   resumeSpeaking,
   speakWithConfiguredProvider,
   stopSpeaking,
@@ -640,6 +642,10 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
   const sessionTimerRef = useRef<number | null>(null);
   const snoozeTimeoutRef = useRef<number | null>(null);
   const wakeInterimTimerRef = useRef<number | null>(null);
+  const pendingInterimTextRef = useRef<string>("");
+  const interimDebounceTimerRef = useRef<number | null>(null);
+  const lastProcessedTextRef = useRef<string>("");
+  const lastProcessedTimeRef = useRef<number>(0);
 
   const appendTurn = useCallback((role: "user" | "assistant", text: string) => {
     setConversationHistory((prev) => [
@@ -906,12 +912,42 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
     if (isSpeakingRef.current || isBrowserCurrentlySpeaking()) return;
 
     stopRecognitionSafe();
+    // Aktifkan AGC & audio capture stream pada level hardware/driver agar mikrofon sensitif dari kejauhan
+    void enableFarFieldMicBoost();
+
     const rec = createSpeechRecognition();
     if (!rec) return;
 
     rec.lang = "id-ID";
     rec.continuous = true;
     rec.interimResults = true;
+
+    // Helper untuk dispatch ucapan yang dikenali (baik dari final maupun interim debounce)
+    const dispatchRecognizedSpeech = (text: string) => {
+      const clean = text.trim();
+      if (!clean) return;
+      const now = Date.now();
+      // Cegah duplikasi pengenalan kata yang sama dalam rentang 1.5 detik
+      if (
+        clean.toLowerCase() === lastProcessedTextRef.current.toLowerCase() &&
+        now - lastProcessedTimeRef.current < 1500
+      ) {
+        return;
+      }
+      lastProcessedTextRef.current = clean;
+      lastProcessedTimeRef.current = now;
+      pendingInterimTextRef.current = "";
+      if (interimDebounceTimerRef.current) {
+        window.clearTimeout(interimDebounceTimerRef.current);
+        interimDebounceTimerRef.current = null;
+      }
+      if (wakeInterimTimerRef.current) {
+        window.clearTimeout(wakeInterimTimerRef.current);
+        wakeInterimTimerRef.current = null;
+      }
+      setLiveTranscript(clean);
+      handleSpokenInputRef.current(clean);
+    };
 
     rec.onresult = (event) => {
       // Blokir mutlak selama Tiara sedang berbicara atau masih dalam jeda redam pantulan speaker
@@ -936,11 +972,6 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      if (wakeInterimTimerRef.current) {
-        window.clearTimeout(wakeInterimTimerRef.current);
-        wakeInterimTimerRef.current = null;
-      }
-
       const msSinceEnded = Date.now() - lastSpeechEndedAtRef.current;
 
       const finalClean = finalChunk.trim();
@@ -953,11 +984,9 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
             msSinceEnded
           )
         ) {
-          // Abaikan pantulan suara speaker Tiara sendiri
           return;
         }
-        setLiveTranscript(finalClean);
-        handleSpokenInputRef.current(finalClean);
+        dispatchRecognizedSpeech(finalClean);
         return;
       }
 
@@ -974,17 +1003,63 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
           return;
         }
         setLiveTranscript(interimClean);
+        pendingInterimTextRef.current = interimClean;
+
         const wakeCheck = parseWakeWord(interimClean);
-        if (wakeCheck.isWakeWord && !wakeCheck.commandAfterWake) {
-          wakeInterimTimerRef.current = window.setTimeout(() => {
+
+        // Jika ada wake word (baik dengan perintah langsung maupun berdiri sendiri)
+        if (wakeCheck.isWakeWord) {
+          if (interimDebounceTimerRef.current) {
+            window.clearTimeout(interimDebounceTimerRef.current);
+          }
+          const debounceMs = wakeCheck.commandAfterWake ? 650 : 500;
+          interimDebounceTimerRef.current = window.setTimeout(() => {
             if (
               !isSpeakingRef.current &&
               !isBrowserCurrentlySpeaking() &&
               Date.now() >= micIgnoreUntilRef.current
             ) {
-              handleSpokenInputRef.current(interimClean);
+              dispatchRecognizedSpeech(interimClean);
             }
-          }, 600);
+          }, debounceMs);
+          return;
+        }
+
+        // Jika sesi percakapan sedang aktif atau ada perintah langsung dari kejauhan
+        if (dialogStageRef.current !== "idle") {
+          if (interimDebounceTimerRef.current) {
+            window.clearTimeout(interimDebounceTimerRef.current);
+          }
+          interimDebounceTimerRef.current = window.setTimeout(() => {
+            if (
+              !isSpeakingRef.current &&
+              !isBrowserCurrentlySpeaking() &&
+              Date.now() >= micIgnoreUntilRef.current
+            ) {
+              dispatchRecognizedSpeech(interimClean);
+            }
+          }, 750);
+          return;
+        }
+
+        // Jika sesi idle tapi terdeteksi perintah langsung yang jelas (tanpa harus ucap 'Tiara')
+        const isDirectCommand =
+          /\b(jadwal|agenda|kegiatan|acara|notulen|notulensi|rapat|tugas|deadline|bacakan|baca|ringkasan|inti|intinya|kesimpulan|kirim ke wa|kirim wa|siapa peserta|kapan rapat)\b/i.test(
+            interimClean
+          );
+        if (isDirectCommand) {
+          if (interimDebounceTimerRef.current) {
+            window.clearTimeout(interimDebounceTimerRef.current);
+          }
+          interimDebounceTimerRef.current = window.setTimeout(() => {
+            if (
+              !isSpeakingRef.current &&
+              !isBrowserCurrentlySpeaking() &&
+              Date.now() >= micIgnoreUntilRef.current
+            ) {
+              dispatchRecognizedSpeech(interimClean);
+            }
+          }, 800);
         }
       }
     };
@@ -1001,6 +1076,18 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
     };
 
     rec.onend = () => {
+      // Flush transkrip interim terakhir yang belum sempat dieksekusi sebelum recognition loop restart
+      const unhandled = pendingInterimTextRef.current.trim();
+      if (
+        unhandled.length >= 3 &&
+        !isSpeakingRef.current &&
+        !isBrowserCurrentlySpeaking() &&
+        Date.now() >= micIgnoreUntilRef.current
+      ) {
+        dispatchRecognizedSpeech(unhandled);
+      }
+      pendingInterimTextRef.current = "";
+
       if (
         assistantEnabledRef.current &&
         !isSpeakingRef.current &&
@@ -1723,6 +1810,20 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
       if (dialogStageRef.current !== "idle") {
         appendTurn("user", transcript);
         void executeAssistantCommand(transcript);
+        return;
+      }
+
+      // Jika sesi sedang idle tapi mikrofon aktif dan pengguna mengucapkan perintah langsung yang jelas dari kejauhan:
+      const lower = transcript.toLowerCase();
+      const isDirectIntent =
+        /\b(jadwal|agenda|kegiatan|acara|notulen|notulensi|rapat|tugas|deadline|bacakan|baca|ringkasan|inti|intinya|kesimpulan|kirim ke wa|kirim wa|siapa peserta|kapan rapat|halo|selamat pagi|selamat siang|selamat sore)\b/i.test(
+          lower
+        );
+
+      if (isDirectIntent) {
+        refreshSessionTimeout("active_session");
+        appendTurn("user", transcript);
+        void executeAssistantCommand(transcript);
       }
     },
     [appendTurn, executeAssistantCommand, speakWithTiara]
@@ -1870,15 +1971,18 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
     if (speakStartTimerRef.current) {
       window.clearTimeout(speakStartTimerRef.current);
     }
+    if (interimDebounceTimerRef.current) {
+      window.clearTimeout(interimDebounceTimerRef.current);
+      interimDebounceTimerRef.current = null;
+    }
+    pendingInterimTextRef.current = "";
+    releaseFarFieldMicBoost();
     stopRecognitionSafe();
   }, [stopRecognitionSafe]);
 
   const toggleWakeWordListening = useCallback(() => {
     if (assistantEnabledRef.current) {
-      assistantEnabledRef.current = false;
-      setAssistantEnabled(false);
-      endConversationSession();
-      stopRecognitionSafe();
+      turnOffAssistantMic();
       toast("Suara asisten Tiara dinonaktifkan sementara.");
     } else {
       assistantEnabledRef.current = true;
@@ -1886,13 +1990,12 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
       toast.success(
         'Asisten Tiara aktif! Ucapkan "Hey Tiara" atau "Halo Tiara" kapan saja.'
       );
-      // Hindari mengucapkan frasa wake-word secara keras lewat speaker agar tidak memicu gema sendiri
       speakWithTiara(
         "Asisten suara aktif dan siap mendengarkan, Pak Dirut. Ada yang bisa saya bantu?",
         { nextStage: "active_session", withChime: "wake" }
       );
     }
-  }, [endConversationSession, speakWithTiara, stopRecognitionSafe]);
+  }, [speakWithTiara, turnOffAssistantMic]);
 
   const simulateWakeWord = useCallback(
     (customCommand?: string) => {
