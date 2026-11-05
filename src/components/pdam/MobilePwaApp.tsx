@@ -302,6 +302,7 @@ export function MobilePwaApp({
     isListening,
     isSpeaking,
     isSpeechPaused,
+    isAiThinking,
     awaitingCommand,
     liveTranscript,
     lastAssistantReply,
@@ -1881,6 +1882,7 @@ export function MobilePwaApp({
                 isListening={isListening}
                 isSpeaking={isSpeaking}
                 isSpeechPaused={isSpeechPaused}
+                isAiThinking={isAiThinking}
                 liveTranscript={liveTranscript}
                 lastAssistantReply={lastAssistantReply}
                 conversationHistory={conversationHistory}
@@ -2075,6 +2077,7 @@ function MobileVoiceSheet({
   isListening,
   isSpeaking,
   isSpeechPaused,
+  isAiThinking,
   liveTranscript,
   lastAssistantReply,
   conversationHistory,
@@ -2096,6 +2099,7 @@ function MobileVoiceSheet({
   isListening: boolean;
   isSpeaking: boolean;
   isSpeechPaused: boolean;
+  isAiThinking: boolean;
   liveTranscript: string;
   lastAssistantReply: string;
   conversationHistory: Array<{
@@ -2373,6 +2377,51 @@ function MobileVoiceSheet({
                   {turn.text}
                 </div>
               ))}
+              {isAiThinking && (
+                <div
+                  style={{
+                    justifySelf: "start",
+                    maxWidth: "88%",
+                    padding: "8px 12px",
+                    borderRadius: 14,
+                    fontSize: 12.5,
+                    background: "rgba(107, 123, 255, 0.12)",
+                    border: "1px dashed #6b7bff",
+                    color: "var(--ink)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 12,
+                      height: 12,
+                      border: "2px solid #6b7bff",
+                      borderTopColor: "transparent",
+                      borderRadius: "50%",
+                      display: "inline-block",
+                      animation: "spin 1s linear infinite",
+                    }}
+                  />
+                  <span>🧠 <b>Mode AI Cloud Aktif:</b> Tiara sedang menganalisis jawaban...</span>
+                </div>
+              )}
+            </div>
+          ) : isAiThinking ? (
+            <div className="card" style={{ marginTop: 10, padding: 14, border: "1px dashed #6b7bff", display: "flex", alignItems: "center", gap: 8 }}>
+              <span
+                style={{
+                  width: 14,
+                  height: 14,
+                  border: "2px solid #6b7bff",
+                  borderTopColor: "transparent",
+                  borderRadius: "50%",
+                  display: "inline-block",
+                  animation: "spin 1s linear infinite",
+                }}
+              />
+              <span style={{ fontSize: 13 }}>🧠 <b>Mode AI Cloud Aktif:</b> Tiara sedang memproses analisis...</span>
             </div>
           ) : (
             lastAssistantReply && (

@@ -141,6 +141,7 @@ interface PdamStoreValue {
   isListening: boolean;
   isSpeaking: boolean;
   isSpeechPaused: boolean;
+  isAiThinking: boolean;
   awaitingCommand: boolean;
   liveTranscript: string;
   lastAssistantReply: string;
@@ -589,6 +590,7 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
   const [isListening, setIsListening] = useState<boolean>(false);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [isSpeechPaused, setIsSpeechPaused] = useState<boolean>(false);
+  const [isAiThinking, setIsAiThinking] = useState<boolean>(false);
   const [liveTranscript, setLiveTranscript] = useState<string>("");
   const [lastAssistantReply, setLastAssistantReply] = useState<string>("");
   const [reminder, setReminder] = useState<ReminderState>({
@@ -672,6 +674,7 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
   const interimDebounceTimerRef = useRef<number | null>(null);
   const lastProcessedTextRef = useRef<string>("");
   const lastProcessedTimeRef = useRef<number>(0);
+  const isProcessingCommandRef = useRef<boolean>(false);
 
   const appendTurn = useCallback((role: "user" | "assistant", text: string) => {
     setConversationHistory((prev) => [
@@ -952,11 +955,19 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
     const dispatchRecognizedSpeech = (text: string) => {
       const clean = text.trim();
       if (!clean) return;
+      // Kunci jika ada perintah yang sedang diproses atau Tiara sedang bersuara
+      if (
+        isProcessingCommandRef.current ||
+        isSpeakingRef.current ||
+        isBrowserCurrentlySpeaking()
+      ) {
+        return;
+      }
       const now = Date.now();
-      // Cegah duplikasi pengenalan kata yang sama dalam rentang 1.5 detik
+      // Cegah duplikasi pengenalan kata yang sama dalam rentang 4 detik
       if (
         clean.toLowerCase() === lastProcessedTextRef.current.toLowerCase() &&
-        now - lastProcessedTimeRef.current < 1500
+        now - lastProcessedTimeRef.current < 4000
       ) {
         return;
       }
@@ -976,8 +987,9 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
     };
 
     rec.onresult = (event) => {
-      // Blokir mutlak selama Tiara sedang berbicara atau masih dalam jeda redam pantulan speaker
+      // Blokir mutlak selama Tiara sedang berbicara, perintah sedang jalan, atau dalam jeda redam gema speaker
       if (
+        isProcessingCommandRef.current ||
         isSpeakingRef.current ||
         isBrowserCurrentlySpeaking() ||
         Date.now() < micIgnoreUntilRef.current
@@ -1038,9 +1050,10 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
           if (interimDebounceTimerRef.current) {
             window.clearTimeout(interimDebounceTimerRef.current);
           }
-          const debounceMs = wakeCheck.commandAfterWake ? 650 : 500;
+          const debounceMs = wakeCheck.commandAfterWake ? 750 : 500;
           interimDebounceTimerRef.current = window.setTimeout(() => {
             if (
+              !isProcessingCommandRef.current &&
               !isSpeakingRef.current &&
               !isBrowserCurrentlySpeaking() &&
               Date.now() >= micIgnoreUntilRef.current
@@ -1056,15 +1069,17 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
           if (interimDebounceTimerRef.current) {
             window.clearTimeout(interimDebounceTimerRef.current);
           }
+          // Debounce diperpanjang ke 1350ms agar jeda nafas bicara Dirut tidak memicu dispatch ganda sebelum final
           interimDebounceTimerRef.current = window.setTimeout(() => {
             if (
+              !isProcessingCommandRef.current &&
               !isSpeakingRef.current &&
               !isBrowserCurrentlySpeaking() &&
               Date.now() >= micIgnoreUntilRef.current
             ) {
               dispatchRecognizedSpeech(interimClean);
             }
-          }, 750);
+          }, 1350);
           return;
         }
 
@@ -1079,13 +1094,14 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
           }
           interimDebounceTimerRef.current = window.setTimeout(() => {
             if (
+              !isProcessingCommandRef.current &&
               !isSpeakingRef.current &&
               !isBrowserCurrentlySpeaking() &&
               Date.now() >= micIgnoreUntilRef.current
             ) {
               dispatchRecognizedSpeech(interimClean);
             }
-          }, 800);
+          }, 1350);
         }
       }
     };
@@ -1102,10 +1118,11 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
     };
 
     rec.onend = () => {
-      // Flush transkrip interim terakhir yang belum sempat dieksekusi sebelum recognition loop restart
+      // Flush transkrip interim terakhir hanya bila belum pernah dieksekusi
       const unhandled = pendingInterimTextRef.current.trim();
       if (
         unhandled.length >= 3 &&
+        !isProcessingCommandRef.current &&
         !isSpeakingRef.current &&
         !isBrowserCurrentlySpeaking() &&
         Date.now() >= micIgnoreUntilRef.current
@@ -1530,7 +1547,11 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
   const executeAssistantCommand = useCallback(
     async (rawCommand: string) => {
       const cmd = rawCommand.trim();
-      const lower = cmd.toLowerCase();
+      if (!cmd) return;
+      if (isProcessingCommandRef.current) return;
+      isProcessingCommandRef.current = true;
+      try {
+        const lower = cmd.toLowerCase();
 
       const activeNotulenId =
         focusedNotulenIdRef.current ??
@@ -1886,20 +1907,26 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
           witaDate.getMinutes()
         ).padStart(2, "0")} WITA`;
 
-        const aiResult = await generateContextualReplyWithAi(
-          cmd,
-          historyRef.current,
-          activeNotulen,
-          settingsRef.current,
-          {
-            todayIso: TODAY_ISO,
-            witaTimeStr,
-            agendas: agendasRef.current,
-            notulenList: notulenRef.current,
-            tugasList: tugasRef.current,
+        setIsAiThinking(true);
+        let aiResult: Awaited<ReturnType<typeof generateContextualReplyWithAi>>;
+        try {
+          aiResult = await generateContextualReplyWithAi(
+            cmd,
+            historyRef.current,
             activeNotulen,
-          }
-        );
+            settingsRef.current,
+            {
+              todayIso: TODAY_ISO,
+              witaTimeStr,
+              agendas: agendasRef.current,
+              notulenList: notulenRef.current,
+              tugasList: tugasRef.current,
+              activeNotulen,
+            }
+          );
+        } finally {
+          setIsAiThinking(false);
+        }
 
         if (aiResult.reply) {
           speakWithTiara(aiResult.reply, {
@@ -2169,7 +2196,10 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
         "Siap Pak Dirut. Bapak dapat meminta saya mencarikan notulen berdasarkan tanggal atau topik, membacakan ringkasan beserta poin keputusannya, menanyakan jadwal kegiatan, atau mencatat agenda baru.",
         { keepSessionAlive: true }
       );
-    },
+    } finally {
+      isProcessingCommandRef.current = false;
+    }
+  },
     [
       navigate,
       openAndFocusNotulen,
@@ -3221,6 +3251,7 @@ export function PdamStoreProvider({ children }: { children: ReactNode }) {
     isListening,
     isSpeaking,
     isSpeechPaused,
+    isAiThinking,
     awaitingCommand,
     liveTranscript,
     lastAssistantReply,

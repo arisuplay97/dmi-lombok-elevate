@@ -274,7 +274,12 @@ export function speakIndonesian(
   }
   cleanupCloudAudio();
   clearSilenceTimer();
-  window.speechSynthesis.cancel();
+  if (typeof window !== "undefined" && "speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+  }
 
   const utterance = new SpeechSynthesisUtterance(text);
   activeUtterance = utterance;
@@ -313,7 +318,14 @@ export function speakIndonesian(
   utterance.onend = finalizeEnd;
   utterance.onerror = finalizeEnd;
 
-  window.speechSynthesis.speak(utterance);
+  // Jeda sangat singkat (25ms) sebelum speak untuk stabilitas mesin audio iOS Safari WebKit
+  window.setTimeout(() => {
+    try {
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      finalizeEnd();
+    }
+  }, 25);
 }
 
 /**
